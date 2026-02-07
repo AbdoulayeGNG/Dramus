@@ -30,7 +30,7 @@ class _ListingsScreenState extends State<ListingsScreen> {
       final listingService = context.read<ListingService>();
       // Charger les données seulement si elles ne sont pas déjà en cache
       if (!listingService.isLoaded) {
-        await listingService.getListings();
+        await listingService.getAllListings();
       }
       _applyFilters();
     });
@@ -48,11 +48,6 @@ class _ListingsScreenState extends State<ListingsScreen> {
     final user = authController.user;
 
     List<Property> listings = listingService.cachedListings;
-
-    // Appliquer le filtrage par rôle utilisateur
-    if (user != null) {
-      listings = listingService.getFilteredListingsForUser(user);
-    }
 
     if (_selectedType != 'all') {
       listings = listings.where((p) => p.type == _selectedType).toList();
@@ -180,10 +175,28 @@ class _ListingsScreenState extends State<ListingsScreen> {
                   return PropertyCard(
                     property: property,
                     onTap: () {
-                      // TODO: navigate to detail
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ListingDetailScreen(
+                            listingId: property.id,
+                          ),
+                        ),
+                      );
                     },
                     onFavoriteToggle: (isFavorite) {
                       // TODO: implement
+                    },
+                    canManage:
+                        false, // Les clients ne peuvent pas gérer les annonces
+                    onViewIncrement: () async {
+                      final listingService = context.read<ListingService>();
+                      final success =
+                          await listingService.incrementViews(property.id);
+                      if (success && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Vue enregistrée !')),
+                        );
+                      }
                     },
                   );
                 },
@@ -211,15 +224,34 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProperty();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProperty();
+    });
   }
 
   Future<void> _loadProperty() async {
-    final listingService = context.read<ListingService>();
-    final property = await listingService.getListingById(widget.listingId);
-    setState(() {
-      _property = property;
-    });
+    try {
+      debugPrint('ListingDetailScreen: Loading property with ID: ${widget.listingId}');
+      final listingService = context.read<ListingService>();
+      final property = await listingService.getListingById(widget.listingId);
+      debugPrint('ListingDetailScreen: Property loaded: ${property?.title ?? "NULL"}');
+      
+      if (mounted) {
+        setState(() {
+          _property = property;
+        });
+      }
+    } catch (e) {
+      debugPrint('ListingDetailScreen: Error loading property: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du chargement de l\'annonce'),
+            backgroundColor: DramusColors.notificationRed,
+          ),
+        );
+      }
+    }
   }
 
   String _formatPrice(num price) {
@@ -280,12 +312,74 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
   Widget _buildImageGallery(BuildContext context, Property property) {
     return Column(
       children: [
-        Image.network(
-          property.images.isNotEmpty ? property.images.first : '',
-          height: 300,
-          width: double.infinity,
-          fit: BoxFit.cover,
-        ),
+        property.images.isNotEmpty
+            ? Image.network(
+                property.images.first,
+                height: 300,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 300,
+                    width: double.infinity,
+                    color: Colors.grey[200],
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: DramusColors.primaryTeal,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 300,
+                    width: double.infinity,
+                    color: Colors.grey[200],
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.broken_image_outlined,
+                          size: 80,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: AppSpacing.md),
+                        Text(
+                          'Image non disponible',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              )
+            : Container(
+                height: 300,
+                width: double.infinity,
+                color: Colors.grey[200],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 80,
+                      color: Colors.grey[400],
+                    ),
+                    SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Aucune image',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
         if (property.images.length > 1)
           Container(
             height: 100,
@@ -308,6 +402,34 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                       property.images[index],
                       width: 100,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          width: 100,
+                          color: Colors.grey[200],
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: DramusColors.primaryTeal,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 100,
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.grey[400],
+                            size: 32,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 );
@@ -423,7 +545,133 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     );
   }
 
+  void _showMessageDialog(BuildContext context, Property property) {
+    final messageController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.mail_outline, color: DramusColors.primaryTeal),
+              SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Envoyer un message',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Concernant: ${property.title}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: DramusColors.secondaryText,
+                        fontStyle: FontStyle.italic,
+                      ),
+                ),
+                SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: messageController,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    hintText: 'Écrivez votre message ici...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      borderSide: BorderSide(color: DramusColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      borderSide: BorderSide(
+                        color: DramusColors.primaryTeal,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Veuillez entrer un message';
+                    }
+                    if (value.trim().length < 10) {
+                      return 'Le message doit contenir au moins 10 caractères';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                messageController.dispose();
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text(
+                'Annuler',
+                style: TextStyle(color: DramusColors.secondaryText),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  // TODO: Implémenter l'envoi du message via l'API
+                  // Pour l'instant, on simule l'envoi
+                  Navigator.of(dialogContext).pop();
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.white),
+                            SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Text('Message envoyé avec succès !'),
+                            ),
+                          ],
+                        ),
+                        backgroundColor: DramusColors.primaryTeal,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                      ),
+                    );
+                  }
+                  
+                  messageController.dispose();
+                }
+              },
+              icon: Icon(Icons.send),
+              label: Text('Envoyer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DramusColors.primaryTeal,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildContactSection(BuildContext context, Property property) {
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -493,9 +741,9 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                   SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () => _showMessageDialog(context, property),
                       icon: const Icon(Icons.mail),
-                      label: const Text('Envoyer'),
+                      label: const Text('Message'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: DramusColors.deepTeal,
                         foregroundColor: DramusColors.white,

@@ -7,6 +7,9 @@ import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/filter_panel.dart';
 import 'package:dramus/widgets/header_section.dart';
 import 'package:dramus/widgets/property_card.dart';
+import 'package:dramus/screens/agence/property_detail_screen.dart';
+import 'package:dramus/screens/agence/edit_property_screen.dart';
+import 'package:dramus/widgets/delete_confirmation_dialog.dart';
 
 class ListingsScreen extends StatefulWidget {
   const ListingsScreen({super.key});
@@ -28,9 +31,17 @@ class _ListingsScreenState extends State<ListingsScreen> {
     _filteredListings = []; // Initialiser la liste vide
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final listingService = context.read<ListingService>();
+      final authController = context.read<AuthController>();
+      final user = authController.user;
       // Charger les données seulement si elles ne sont pas déjà en cache
       if (!listingService.isLoaded) {
-        await listingService.getListings();
+        final role = user!.role.toLowerCase();
+        if (role == 'agence' || role == 'agency') {
+          await listingService.getAgencyListings(user.id);
+        } else {
+          // Pour particuliers et agents
+          await listingService.getUserListings(user.id);
+        }
       }
       _applyFilters();
     });
@@ -48,11 +59,6 @@ class _ListingsScreenState extends State<ListingsScreen> {
     final user = authController.user;
 
     List<Property> listings = listingService.cachedListings;
-
-    // Appliquer le filtrage par rôle utilisateur
-    if (user != null) {
-      listings = listingService.getFilteredListingsForUser(user);
-    }
 
     if (_selectedType != 'all') {
       listings = listings.where((p) => p.type == _selectedType).toList();
@@ -185,6 +191,26 @@ class _ListingsScreenState extends State<ListingsScreen> {
                     onFavoriteToggle: (isFavorite) {
                       // TODO: implement
                     },
+                    canManage: true,
+                    onViewDetails: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              PropertyDetailScreen(property: property),
+                        ),
+                      );
+                    },
+                    onEdit: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EditPropertyScreen(property: property),
+                        ),
+                      );
+                    },
+                    onDelete: () {
+                      _showDeleteConfirmationDialog(context, property);
+                    },
                   );
                 },
               ),
@@ -193,6 +219,66 @@ class _ListingsScreenState extends State<ListingsScreen> {
         ],
       ),
     );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context, Property property) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return DeleteConfirmationDialog(
+          title: 'Supprimer l\'annonce',
+          message:
+              'Êtes-vous sûr de vouloir supprimer cette annonce ? Cette action est irréversible.',
+          onConfirm: () async {
+            Navigator.of(dialogContext).pop(); // Fermer le dialog
+            await _deleteProperty(property);
+          },
+          onCancel: () {
+            Navigator.of(dialogContext).pop(); // Fermer le dialog
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteProperty(Property property) async {
+    final listingService = context.read<ListingService>();
+
+    final success = await listingService.deleteListing(property.id);
+
+    if (success && mounted) {
+      // Recharger les données depuis le cache/service
+      final authController = context.read<AuthController>();
+      final user = authController.user;
+      if (!listingService.isLoaded) {
+        final role = user!.role.toLowerCase();
+        if (role == 'agence' || role == 'agency') {
+          await listingService.getAgencyListings(user.id);
+        } else {
+          await listingService.getUserListings(user.id);
+        }
+      }
+      _applyFilters();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Annonce supprimée avec succès')),
+      );
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la suppression')),
+        );
+      }
+    }
   }
 }
 
@@ -211,7 +297,9 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProperty();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProperty();
+    });
   }
 
   Future<void> _loadProperty() async {

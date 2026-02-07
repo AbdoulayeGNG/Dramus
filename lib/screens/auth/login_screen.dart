@@ -51,11 +51,13 @@ class _LoginScreenState extends State<LoginScreen> {
         final userService = Provider.of<UserService>(context, listen: false);
         userService.updateCurrentUser(user);
 
-        // Navigate based on role: agence -> agence main, otherwise client main
-        if (user.role == 'client') {
+        // Navigate based on role
+        if (user.role.toLowerCase() == 'client') {
+          // Clients utilisent l'interface client
           Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const MainAppScreen()));
         } else {
+          // Particuliers, agents et agences utilisent l'interface agence
           Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const MainAppScreenAgence()));
         }

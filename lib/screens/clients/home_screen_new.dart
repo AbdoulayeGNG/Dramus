@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:dramus/models/property.dart';
 import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/services/message_service.dart';
+import 'package:dramus/services/favorites_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/property_card.dart';
@@ -26,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final listingService = context.read<ListingService>();
       // Charger les données seulement si elles ne sont pas déjà en cache
       if (!listingService.isLoaded) {
-        await listingService.getListings();
+        await listingService.getAllListings();
       }
       _applyFilters();
     });
@@ -44,13 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = authController.user;
 
     List<Property> listings = listingService.cachedListings;
-
-    // Appliquer le filtrage par rôle utilisateur
-    if (user != null) {
-      listings = listingService.getFilteredListingsForUser(user);
-    }
-
-    // Filter by published status
     listings = listings.where((p) => p.status == 'published').toList();
 
     if (_searchController.text.isNotEmpty) {
@@ -224,6 +218,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: Icons.favorite_outline,
                   label: 'Favoris',
                   color: DramusColors.premiumYellow,
+                  badge: Consumer<FavoritesService>(
+                    builder: (context, favoritesService, _) {
+                      final favoritesCount = favoritesService.favoriteIds.length;
+                      return favoritesCount > 0
+                          ? Text(
+                              '$favoritesCount',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: DramusColors.notificationRed,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            )
+                          : SizedBox.shrink();
+                    },
+                  ),
                   onTap: () {},
                 ),
               ),
@@ -437,6 +448,20 @@ class _HomeScreenState extends State<HomeScreen> {
                             onTap: () {},
                             onFavoriteToggle: (isFavorite) {
                               // TODO: implement favorite toggle
+                            },
+                            canManage:
+                                false, // Les clients ne peuvent pas gérer les annonces
+                            onViewIncrement: () async {
+                              final listingService =
+                                  context.read<ListingService>();
+                              final success = await listingService
+                                  .incrementViews(listing.id);
+                              if (success && mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Vue enregistrée !')),
+                                );
+                              }
                             },
                           ),
                         ),

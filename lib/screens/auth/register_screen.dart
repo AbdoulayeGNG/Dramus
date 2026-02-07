@@ -8,7 +8,6 @@ import 'package:dramus/screens/auth/login_screen.dart';
 import 'package:dramus/screens/clients/main_app_screen.dart';
 import 'package:dramus/screens/agence/main_app_screen.dart';
 
-
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -96,7 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Inscription réussie')));
-          // Si client -> page d'accueil, sinon -> page de connexion
+          // Si client -> page client, sinon -> page agence
           if (_selectedRoleId == 'client') {
             Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const MainAppScreen()));

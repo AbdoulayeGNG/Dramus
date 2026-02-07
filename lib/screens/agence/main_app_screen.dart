@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/services/user_service.dart';
 import 'package:dramus/services/auth_service.dart';
+import 'package:dramus/services/favorites_service.dart';
 import 'listings_screen.dart';
 import 'home_screen.dart';
 import 'messages_screen.dart';
@@ -298,6 +299,7 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
       providers: [
         ChangeNotifierProvider(create: (_) => MessageService()),
         ChangeNotifierProvider(create: (_) => UserService()),
+        ChangeNotifierProvider(create: (_) => FavoritesService()),
       ],
       child: Scaffold(
         key: _scaffoldKey, // CLÉ DU SCAFFOLD AJOUTÉE ICI

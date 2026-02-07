@@ -39,6 +39,7 @@ class Property {
   final List<String> images;
   final String status; // draft | published | archived
   final int views;
+  final bool isFavorite; // Indique si la propriété est en favori
 
   const Property({
     required this.id,
@@ -52,11 +53,16 @@ class Property {
     required this.images,
     required this.status,
     required this.views,
+    this.isFavorite = false,
   });
 
   factory Property.fromJson(Map<String, dynamic> json) => Property(
-        id: json['id']?.toString() ?? '',
-        ownerId: json['ownerId']?.toString() ?? '',
+        id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+        ownerId: json['ownerId'] is Map
+            ? (json['ownerId']['_id']?.toString() ??
+                json['ownerId']['id']?.toString() ??
+                '')
+            : json['ownerId']?.toString() ?? '',
         title: json['title'] ?? '',
         type: json['type'] ?? 'Maison',
         price: json['price'] ?? 0,
@@ -67,6 +73,7 @@ class Property {
             ((json['images'] ?? []) as List).map((e) => e.toString()).toList(),
         status: json['status'] ?? 'draft',
         views: (json['views'] as num?)?.toInt() ?? 0,
+        isFavorite: json['isFavorite'] ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -81,5 +88,6 @@ class Property {
         'images': images,
         'status': status,
         'views': views,
+        'isFavorite': isFavorite,
       };
 }

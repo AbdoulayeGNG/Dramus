@@ -7,6 +7,9 @@ import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/custom_button.dart';
 import 'package:dramus/widgets/property_card.dart';
+import 'package:dramus/screens/agence/property_detail_screen.dart';
+import 'package:dramus/screens/agence/edit_property_screen.dart';
+import 'package:dramus/widgets/delete_confirmation_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,7 +24,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProperties();
+    // Déplacer l'appel dans didChangeDependencies pour éviter les problèmes de build
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadProperties();
+      _applyFilters();
+    });
   }
 
   Future<void> _loadProperties() async {
@@ -31,18 +43,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Charger les données seulement si elles ne sont pas déjà en cache
     if (!listingService.isLoaded) {
-      await listingService.getListings();
+      final role = user!.role.toLowerCase();
+      if (role == 'agence' || role == 'agency') {
+        await listingService.getAgencyListings(user.id);
+      } else {
+        // Pour particuliers et agents
+        await listingService.getUserListings(user.id);
+      }
     }
 
     List<Property> properties = listingService.cachedListings;
 
-    // Appliquer le filtrage par rôle utilisateur
-    if (user != null) {
-      properties = listingService.getFilteredListingsForUser(user);
-    }
-
     setState(() {
       _properties = properties;
+    });
+  }
+
+  void _applyFilters() {
+    final listingService = context.read<ListingService>();
+
+    List<Property> listings = listingService.cachedListings;
+    // Filtrer seulement les propriétés publiées pour l'affichage
+    listings = listings.where((p) => p.status == 'published').toList();
+
+    setState(() {
+      _properties = listings;
     });
   }
 
@@ -69,20 +94,57 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Espace Agence',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: DramusColors.darkText,
-                fontWeight: FontWeight.bold,
-                fontSize: 24),
+          Consumer<AuthController>(
+            builder: (context, authController, _) {
+              final user = authController.user;
+              String titleText;
+              if (user != null) {
+                final role = user.role.toLowerCase();
+                if (role == 'particulier') {
+                  titleText = 'Espace Particulier';
+                } else if (role == 'agent') {
+                  titleText = 'Espace Agent';
+                } else {
+                  titleText = 'Espace Agence';
+                }
+              } else {
+                titleText = 'Espace Agence';
+              }
+              return Text(
+                titleText,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: DramusColors.darkText,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24),
+              );
+            },
           ),
           //SizedBox(height: AppSpacing.lg),
-          Text(
-            'Voici un aperçu de votre activité immobilière',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: DramusColors.darkText,
-                fontWeight: FontWeight.w100,
-                fontSize: 12),
+          Consumer<AuthController>(
+            builder: (context, authController, _) {
+              final user = authController.user;
+              String subtitleText;
+              if (user != null) {
+                final role = user.role.toLowerCase();
+                if (role == 'particulier') {
+                  subtitleText = 'Gérez vos annonces immobilières';
+                } else if (role == 'agent') {
+                  subtitleText = 'Gérez vos propriétés et clients';
+                } else {
+                  subtitleText =
+                      'Voici un aperçu de votre activité immobilière';
+                }
+              } else {
+                subtitleText = 'Voici un aperçu de votre activité immobilière';
+              }
+              return Text(
+                subtitleText,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: DramusColors.darkText,
+                    fontWeight: FontWeight.w100,
+                    fontSize: 12),
+              );
+            },
           ),
           SizedBox(height: AppSpacing.xl),
 
@@ -399,6 +461,26 @@ class _HomeScreenState extends State<HomeScreen> {
                           onFavoriteToggle: (isFavorite) {
                             // TODO: implement
                           },
+                          canManage: true,
+                          onViewDetails: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    PropertyDetailScreen(property: property),
+                              ),
+                            );
+                          },
+                          onEdit: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    EditPropertyScreen(property: property),
+                              ),
+                            );
+                          },
+                          onDelete: () {
+                            _showDeleteConfirmationDialog(context, property);
+                          },
                         ),
                       ),
                     )
@@ -472,5 +554,56 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context, Property property) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return DeleteConfirmationDialog(
+          title: 'Supprimer l\'annonce',
+          message:
+              'Êtes-vous sûr de vouloir supprimer cette annonce ? Cette action est irréversible.',
+          onConfirm: () async {
+            Navigator.of(dialogContext).pop(); // Fermer le dialog
+            await _deleteProperty(property);
+          },
+          onCancel: () {
+            Navigator.of(dialogContext).pop(); // Fermer le dialog
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteProperty(Property property) async {
+    final listingService = context.read<ListingService>();
+
+    final success = await listingService.deleteListing(property.id);
+
+    if (success && mounted) {
+      // Rafraîchir les données
+      await _loadProperties();
+      _applyFilters();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Annonce supprimée avec succès')),
+      );
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la suppression')),
+        );
+      }
+    }
   }
 }

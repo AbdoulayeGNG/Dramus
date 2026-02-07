@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dramus/services/user_service.dart';
 import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/services/favorites_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/screens/auth/login_screen.dart';
 import 'package:dramus/theme.dart';
@@ -21,6 +22,7 @@ class DramusApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserService()),
         ChangeNotifierProvider(create: (_) => AuthController()),
         ChangeNotifierProvider(create: (_) => ListingService()),
+        ChangeNotifierProvider(create: (_) => FavoritesService()),
         // ajoute d'autres providers globaux ici (AuthService, ListingService, ...)
       ],
       child: MaterialApp(

@@ -1,0 +1,335 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:dramus/models/property.dart';
+import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/theme.dart';
+
+class PropertyDetailScreen extends StatefulWidget {
+  final Property? property;
+  final String? propertyId;
+
+  const PropertyDetailScreen({super.key, this.property, this.propertyId})
+      : assert(property != null || propertyId != null,
+            'Either property or propertyId must be provided');
+
+  @override
+  State<PropertyDetailScreen> createState() => _PropertyDetailScreenState();
+}
+
+class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
+  Property? _property;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProperty();
+  }
+
+  Future<void> _loadProperty() async {
+    // Si la propriété est déjà passée, l'utiliser directement
+    if (widget.property != null) {
+      setState(() {
+        _property = widget.property;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Sinon, charger depuis l'API
+    final listingService = context.read<ListingService>();
+    final property = await listingService.getListingById(widget.propertyId!);
+
+    if (mounted) {
+      setState(() {
+        _property = property;
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _formatPrice(num price) {
+    if (price >= 1000000) {
+      return '${(price / 1000000).toStringAsFixed(1)}M GNF';
+    } else if (price >= 1000) {
+      return '${(price / 1000).toStringAsFixed(0)}K GNF';
+    }
+    return '${price.toStringAsFixed(0)} GNF';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: DramusColors.darkPetroleum,
+          title: const Text('Détails de l\'annonce'),
+          elevation: 0,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_property == null) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: DramusColors.darkPetroleum,
+          title: const Text('Détails de l\'annonce'),
+          elevation: 0,
+        ),
+        body: const Center(
+          child: Text('Annonce non trouvée'),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: DramusColors.darkPetroleum,
+        title: const Text('Détails de l\'annonce'),
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image gallery
+            _buildImageGallery(_property!),
+
+            // Content
+            Padding(
+              padding: AppSpacing.paddingLg,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Price and title
+                  _buildPriceSection(_property!),
+
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Property details
+                  _buildPropertyDetails(_property!),
+
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Description
+                  _buildDescriptionSection(_property!),
+
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Location
+                  _buildLocationSection(_property!),
+
+                  SizedBox(height: AppSpacing.xxl),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageGallery(Property property) {
+    if (property.images.isEmpty) {
+      return Container(
+        height: 250,
+        color: DramusColors.lightBackground,
+        child: const Center(
+          child: Icon(
+            Icons.image_not_supported,
+            size: 64,
+            color: DramusColors.secondaryText,
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 250,
+      child: PageView.builder(
+        itemCount: property.images.length,
+        itemBuilder: (context, index) {
+          return Image.network(
+            property.images[index],
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: DramusColors.lightBackground,
+                child: const Center(
+                  child: Icon(
+                    Icons.broken_image,
+                    size: 64,
+                    color: DramusColors.secondaryText,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPriceSection(Property property) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _formatPrice(property.price),
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                color: DramusColors.primaryTeal,
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        SizedBox(height: AppSpacing.sm),
+        Text(
+          property.title,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPropertyDetails(Property property) {
+    return Container(
+      padding: AppSpacing.paddingMd,
+      decoration: BoxDecoration(
+        color: DramusColors.lightBackground,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: DramusColors.border),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildDetailItem(
+                  Icons.category,
+                  'Type',
+                  property.type,
+                ),
+              ),
+              Expanded(
+                child: _buildDetailItem(
+                  Icons.square_foot,
+                  'Surface',
+                  '${property.surface.toStringAsFixed(0)}m²',
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDetailItem(
+                  Icons.location_city,
+                  'Ville',
+                  property.location.city,
+                ),
+              ),
+              Expanded(
+                child: _buildDetailItem(
+                  Icons.location_on,
+                  'Quartier',
+                  property.location.district,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailItem(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: DramusColors.primaryTeal, size: 20),
+        SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: DramusColors.secondaryText,
+                    ),
+              ),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescriptionSection(Property property) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Description',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        SizedBox(height: AppSpacing.md),
+        Text(
+          property.description,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationSection(Property property) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Localisation',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        SizedBox(height: AppSpacing.md),
+        Container(
+          padding: AppSpacing.paddingMd,
+          decoration: BoxDecoration(
+            color: DramusColors.lightBackground,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: DramusColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.location_on,
+                color: DramusColors.primaryTeal,
+                size: 24,
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  '${property.location.city}, ${property.location.district}',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

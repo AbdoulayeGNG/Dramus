@@ -4,6 +4,7 @@ import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/services/message_service.dart';
 import 'package:dramus/services/user_service.dart';
 import 'package:dramus/services/admin_service.dart';
+import 'package:dramus/services/favorites_service.dart';
 import 'package:dramus/theme.dart';
 import 'home_screen_new.dart';
 import 'messages_screen.dart';
@@ -28,6 +29,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
         ChangeNotifierProvider(create: (_) => MessageService()),
         ChangeNotifierProvider(create: (_) => UserService()),
         ChangeNotifierProvider(create: (_) => AdminService()),
+        ChangeNotifierProvider(create: (_) => FavoritesService()),
       ],
       child: Scaffold(
         body: _buildBody(),
@@ -48,11 +50,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
       case 3:
         return MessagesScreen();
       case 4:
-        return Consumer<UserService>(
-          builder: (context, userService, _) {
-            return ProfileScreen();
-          },
-        );
+        return ProfileScreen();
       default:
         return HomeScreen();
     }
@@ -99,18 +97,29 @@ class _MainAppScreenState extends State<MainAppScreen> {
                       ? DramusColors.primaryTeal
                       : DramusColors.secondaryText,
                 ),
+                label: 'Annonces',
+              ),
+              NavigationDestination(
+                icon: Icon(
+                  _selectedIndex == 2
+                      ? Icons.apartment
+                      : Icons.apartment_outlined,
+                  color: _selectedIndex == 2
+                      ? DramusColors.primaryTeal
+                      : DramusColors.secondaryText,
+                ),
                 label: 'Carte',
               ),
               NavigationDestination(
                 icon: Stack(
                   children: [
                     Icon(
-                      _selectedIndex == 2 ? Icons.mail : Icons.mail_outlined,
-                      color: _selectedIndex == 2
+                      _selectedIndex == 3 ? Icons.mail : Icons.mail_outlined,
+                      color: _selectedIndex == 3
                           ? DramusColors.primaryTeal
                           : DramusColors.secondaryText,
                     ),
-                    if (unreadCount > 0)
+                    if (unreadCount > 0)  
                       Positioned(
                         right: 0,
                         top: 0,
@@ -144,8 +153,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
               ),
               NavigationDestination(
                 icon: Icon(
-                  _selectedIndex == 3 ? Icons.person : Icons.person_outlined,
-                  color: _selectedIndex == 3
+                  _selectedIndex == 4 ? Icons.person : Icons.person_outlined,
+                  color: _selectedIndex == 4
                       ? DramusColors.primaryTeal
                       : DramusColors.secondaryText,
                 ),
