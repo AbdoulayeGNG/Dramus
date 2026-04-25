@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "973200114454",
+    "project_id": "dramus-6eab9",
+    "storage_bucket": "dramus-6eab9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:973200114454:android:cdcc76dd621d5c2afac637",
+        "android_client_info": {
+          "package_name": "com.example.dramus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBusGr-S9785nsX8OREDAn4wG-xq_HCdjs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

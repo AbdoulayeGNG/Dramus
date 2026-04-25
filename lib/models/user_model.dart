@@ -25,6 +25,13 @@ class User {
 
   String get fullName => '$firstName $lastName';
 
+  String get initials {
+    String f = firstName.isNotEmpty ? firstName[0] : '';
+    String l = lastName.isNotEmpty ? lastName[0] : '';
+    if (f.isEmpty && l.isEmpty) return 'U';
+    return (f + l).toUpperCase();
+  }
+
   factory User.fromJson(Map<String, dynamic> json) => User(
         id: (json['_id'] ?? json['id'])?.toString() ?? '',
         firstName: json['firstName'] ?? '',

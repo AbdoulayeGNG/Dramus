@@ -32,21 +32,16 @@ class PropertyCard extends StatefulWidget {
 }
 
 class _PropertyCardState extends State<PropertyCard> {
-  late bool _isFavorite;
   bool _isLoadingFavorite = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialiser l'état favori à partir du service
-    _isFavorite = widget.property.isFavorite;
   }
 
   @override
   void didUpdateWidget(PropertyCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Mettre à jour si la propriété change
-    _isFavorite = widget.property.isFavorite;
   }
 
   Future<void> _toggleFavorite() async {
@@ -63,16 +58,16 @@ class _PropertyCardState extends State<PropertyCard> {
       final success = await favoritesService.toggleFavorite(widget.property.id);
 
       if (success && mounted) {
-        setState(() {
-          _isFavorite = !_isFavorite;
-        });
-        widget.onFavoriteToggle?.call(_isFavorite);
+        // Le service va notifier les auditeurs, donc le Consumer va reconstruire
+        widget.onFavoriteToggle
+            ?.call(!favoritesService.isFavorite(widget.property.id));
 
         // Afficher un message de confirmation
+        final isNowFavorite = favoritesService.isFavorite(widget.property.id);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isFavorite ? 'Ajouté aux favoris' : 'Retiré des favoris',
+              isNowFavorite ? 'Ajouté aux favoris' : 'Retiré des favoris',
             ),
             duration: const Duration(seconds: 2),
             backgroundColor: DramusColors.primaryTeal,
@@ -230,7 +225,16 @@ class _PropertyCardState extends State<PropertyCard> {
                             return Container(
                               height: 200,
                               width: double.infinity,
-                              color: Colors.grey[200],
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    DramusColors.darkPetroleum,
+                                    DramusColors.primaryTeal,
+                                  ],
+                                ),
+                              ),
                               child: Center(
                                 child: CircularProgressIndicator(
                                   value: loadingProgress.expectedTotalBytes !=
@@ -244,54 +248,11 @@ class _PropertyCardState extends State<PropertyCard> {
                             );
                           },
                           errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 200,
-                              width: double.infinity,
-                              color: Colors.grey[200],
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.home_outlined,
-                                    size: 64,
-                                    color: Colors.grey[400],
-                                  ),
-                                  SizedBox(height: AppSpacing.sm),
-                                  Text(
-                                    'Image non disponible',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
+                            return _buildImagePlaceholder(
+                                context, 'Image non disponible');
                           },
                         )
-                      : Container(
-                          height: 200,
-                          width: double.infinity,
-                          color: Colors.grey[200],
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported_outlined,
-                                size: 64,
-                                color: Colors.grey[400],
-                              ),
-                              SizedBox(height: AppSpacing.sm),
-                              Text(
-                                'Aucune image',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      : _buildImagePlaceholder(context, 'Aucune image'),
                 ),
                 Positioned(
                   top: AppSpacing.md,
@@ -300,24 +261,32 @@ class _PropertyCardState extends State<PropertyCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Bouton favori seulement (moreVert déplacé en bas)
-                      GestureDetector(
-                        onTap: _toggleFavorite,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: DramusColors.white.withValues(alpha: 0.95),
-                            borderRadius: BorderRadius.circular(AppRadius.xl),
-                          ),
-                          padding: AppSpacing.paddingSm,
-                          child: Icon(
-                            _isFavorite
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                            color: _isFavorite
-                                ? DramusColors.notificationRed
-                                : DramusColors.secondaryText,
-                            size: 20,
-                          ),
-                        ),
+                      Consumer<FavoritesService>(
+                        builder: (context, favoritesService, _) {
+                          final isFavorite =
+                              favoritesService.isFavorite(widget.property.id);
+                          return GestureDetector(
+                            onTap: _toggleFavorite,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color:
+                                    DramusColors.white.withValues(alpha: 0.95),
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.xl),
+                              ),
+                              padding: AppSpacing.paddingSm,
+                              child: Icon(
+                                isFavorite
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                color: isFavorite
+                                    ? DramusColors.notificationRed
+                                    : DramusColors.secondaryText,
+                                size: 20,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -465,6 +434,41 @@ class _PropertyCardState extends State<PropertyCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder(BuildContext context, String message) {
+    return Container(
+      height: 200,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            DramusColors.darkPetroleum,
+            DramusColors.primaryTeal,
+          ],
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.home_outlined,
+            size: 64,
+            color: DramusColors.white.withValues(alpha: 0.5),
+          ),
+          SizedBox(height: AppSpacing.sm),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: DramusColors.white.withValues(alpha: 0.7),
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+        ],
       ),
     );
   }

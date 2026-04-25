@@ -4,14 +4,16 @@ import 'package:provider/provider.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/services/user_service.dart';
 import 'package:dramus/services/auth_service.dart';
+import 'package:dramus/screens/agence/favorites_screen.dart';
 import 'package:dramus/services/favorites_service.dart';
 import 'listings_screen.dart';
 import 'home_screen.dart';
 import 'messages_screen.dart';
 import 'profile_screen.dart';
-import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/services/message_service.dart';
+import 'package:dramus/services/agent_service.dart';
 import 'publish_screen.dart';
+import 'agents_list_screen.dart';
 
 class MainAppScreenAgence extends StatefulWidget {
   const MainAppScreenAgence({super.key});
@@ -193,38 +195,45 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                     onTap: () => _setIndexAndClose(1),
                   ),
                   ListTile(
-                    leading: Icon(
+                    leading: const Icon(
                       Icons.favorite,
                       color: DramusColors.darkText,
                     ),
                     title: const Text('Mes favoris'),
                     onTap: () {
                       Navigator.of(context).pop();
-                      // TODO: Naviguer vers FavoritesScreen
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const FavoritesScreen(),
+                        ),
+                      );
                     },
                   ),
                   ListTile(
-                    leading: Icon(
+                    leading: const Icon(
                       Icons.home_work,
                       color: DramusColors.darkText,
                     ),
                     title: const Text('Mes annonces'),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      // TODO: Naviguer vers MyListingsScreen
-                    },
+                    onTap: () => _setIndexAndClose(1),
                   ),
-                  ListTile(
-                    leading: Icon(
-                      Icons.group,
-                      color: DramusColors.darkText,
+                  if (user.role.toLowerCase() == "agency_admin")
+                    ListTile(
+                      leading: Icon(
+                        Icons.group,
+                        color: DramusColors.darkText,
+                      ),
+                      title: const Text('Mes agents'),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const AgentsListScreen()),
+                        );
+                      },
                     ),
-                    title: const Text('Mes agents'),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      // TODO: Naviguer vers MyListingsScreen
-                    },
-                  ),
+                  
                   ListTile(
                     leading: Icon(
                       Icons.bar_chart,
@@ -300,53 +309,69 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
         ChangeNotifierProvider(create: (_) => MessageService()),
         ChangeNotifierProvider(create: (_) => UserService()),
         ChangeNotifierProvider(create: (_) => FavoritesService()),
+        ChangeNotifierProvider(create: (_) => AgentService()),
       ],
-      child: Scaffold(
-        key: _scaffoldKey, // CLÉ DU SCAFFOLD AJOUTÉE ICI
-        appBar: AppBar(
-          backgroundColor: DramusColors.white,
-          foregroundColor: DramusColors.darkText,
-          elevation: 0,
-          title: Text(
-            _appBarTitle,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-          leading: IconButton(
-            icon: Icon(
-              Icons.menu,
-              color: DramusColors.darkText,
-            ),
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          ),
-          actions: [
-            // Bouton notifications
-            IconButton(
-              icon: Icon(Icons.notifications_outlined),
-              color: DramusColors.darkText,
-              onPressed: () {
-                // TODO: Naviguer vers NotificationsScreen
+      child: Builder(
+        builder: (context) {
+          return Scaffold(
+            key: _scaffoldKey,
+            appBar: _selectedIndex == 2
+                ? null
+                : AppBar(
+                    backgroundColor: DramusColors.white,
+                    foregroundColor: DramusColors.darkText,
+                    elevation: 0,
+                    title: Text(
+                      _appBarTitle,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    leading: IconButton(
+                      icon: const Icon(
+                        Icons.menu,
+                        color: DramusColors.darkText,
+                      ),
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                    ),
+                    actions: [
+                      if (_selectedIndex == 2)
+                        IconButton(
+                          icon: const Icon(Icons.refresh),
+                          color: DramusColors.darkText,
+                          onPressed: () {
+                            Provider.of<MessageService>(context, listen: false)
+                                .loadConversations();
+                          },
+                        ),
+                      // Bouton notifications
+                      IconButton(
+                        icon: const Icon(Icons.notifications_outlined),
+                        color: DramusColors.darkText,
+                        onPressed: () {
+                          // TODO: Naviguer vers NotificationsScreen
+                        },
+                      ),
+                    ],
+                  ),
+            drawer: _buildDrawer(context),
+            body: Consumer<UserService>(
+              builder: (context, userService, _) {
+                return _pages[_selectedIndex];
               },
             ),
-          ],
-        ),
-        drawer: _buildDrawer(context),
-        body: Consumer<UserService>(
-          builder: (context, userService, _) {
-            return _pages[_selectedIndex];
-          },
-        ),
-        bottomNavigationBar: _buildBottomNavBar(context),
-        floatingActionButton: _buildFAB(context),
+            bottomNavigationBar: _buildBottomNavBar(context),
+            floatingActionButton: _buildFAB(context),
+          );
+        },
       ),
     );
   }
 
   Widget _buildBottomNavBar(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: DramusColors.white,
         border: Border(
           top: BorderSide(
@@ -401,18 +426,18 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                         right: 0,
                         top: 0,
                         child: Container(
-                          padding: EdgeInsets.all(2),
+                          padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
                             color: DramusColors.notificationRed,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          constraints: BoxConstraints(
+                          constraints: const BoxConstraints(
                             minWidth: 12,
                             minHeight: 12,
                           ),
                           child: Text(
                             '$unreadCount',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: DramusColors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 8,
@@ -442,7 +467,10 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
   }
 
   // Floating Action Button
-  Widget _buildFAB(BuildContext context) {
+  Widget? _buildFAB(BuildContext context) {
+    // Masquer le FAB sur l'écran des messages pour libérer l'espace pour la saisie
+    if (_selectedIndex == 2) return null;
+
     return FloatingActionButton.extended(
       onPressed: () {
         Navigator.of(context).push(

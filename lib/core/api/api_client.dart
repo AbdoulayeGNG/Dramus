@@ -5,20 +5,18 @@ import 'package:dramus/core/api/token_storage.dart';
 
 /// Centralized Dio client with JWT and refresh-token interceptor.
 class ApiClient {
-  ApiClient._(this._dio);
+  static final ApiClient _instance = ApiClient._internal();
+  static ApiClient get I => _instance;
+  // Alias pour la compatibilité si utilisé ailleurs
+  static ApiClient get instance => _instance;
 
-  final Dio _dio;
-  static final TokenStorage _storage = TokenStorage();
+  late final Dio dio;
+  final TokenStorage _storage = TokenStorage();
+  bool _isRefreshing = false;
 
-  static ApiClient? _instance;
-  static ApiClient get I => _instance ??= ApiClient._(_createDio());
-
-  Dio get dio => _dio;
-
-  static Dio _createDio() {
-    final dio = Dio(
+  ApiClient._internal() {
+    dio = Dio(
       BaseOptions(
-        // Use an environment variable name and a sensible default base URL.
         baseUrl: const String.fromEnvironment('API_BASE_URL',
             defaultValue: 'https://dramus-api.onrender.com'),
         connectTimeout: const Duration(seconds: 20),
@@ -30,55 +28,133 @@ class ApiClient {
 
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.getAccessToken();
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
+        // Allow request to proceed without token if it's explicitly public or refresh
+        if (options.headers.containsKey('Authorization') &&
+            options.headers['Authorization'] == null) {
+          options.headers.remove('Authorization');
+          return handler.next(options);
+        }
+
+        // Add token if not present
+        if (!options.headers.containsKey('Authorization')) {
+          final token = await _storage.getAccessToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
         }
         return handler.next(options);
       },
       onError: (e, handler) async {
-        // Attempt refresh on 401
+        // Handle 401 Unauthorized
         if (e.response?.statusCode == 401) {
-          final refreshed = await _tryRefresh();
-          if (refreshed) {
-            try {
-              final reqOptions = e.requestOptions;
-              final response = await dio.request(
-                reqOptions.path,
-                data: reqOptions.data,
-                queryParameters: reqOptions.queryParameters,
-                options: Options(
-                  method: reqOptions.method,
-                  headers: reqOptions.headers,
-                ),
-              );
-              return handler.resolve(response);
-            } catch (e2) {
-              debugPrint('Retry after refresh failed: $e2');
+          final path = e.requestOptions.path;
+
+          // If the error comes from the refresh endpoint itself, or login, fail immediately
+          if (path.contains('refresh-token') || path.contains('login')) {
+            if (path.contains('refresh-token')) {
+              await _storage.clear(); // Session expired
             }
+            return handler.next(e);
+          }
+
+          // Avoid multiple concurrent refreshes
+          if (_isRefreshing) {
+            // Simplified: fail concurrent requests, or implement a queue/completer system
+            // For now, we propagate error to avoid deadlock
+            return handler.next(e);
+          }
+
+          _isRefreshing = true;
+          try {
+            final refreshed = await _refreshToken();
+            _isRefreshing = false;
+
+            if (refreshed) {
+              // Retry original request with new token
+              final opts = e.requestOptions;
+              final newToken = await _storage.getAccessToken();
+
+              opts.headers['Authorization'] = 'Bearer $newToken';
+
+              try {
+                final cloneReq = await dio.request(
+                  opts.path,
+                  options: Options(
+                    method: opts.method,
+                    headers: opts.headers,
+                  ),
+                  data: opts.data,
+                  queryParameters: opts.queryParameters,
+                );
+                return handler.resolve(cloneReq);
+              } catch (retryError) {
+                // If retry fails, return original error or retry error
+                return handler.next(e);
+              }
+            } else {
+              // Refresh failed
+              await _storage.clear();
+            }
+          } catch (refreshError) {
+            _isRefreshing = false;
+            await _storage.clear();
           }
         }
         return handler.next(e);
       },
     ));
-    return dio;
   }
 
-  static Future<bool> _tryRefresh() async {
+  Future<bool> _refreshToken() async {
     try {
-      final refresh = await _storage.getRefreshToken();
-      if (refresh == null || refresh.isEmpty) return false;
-      final res = await ApiClient.I._dio
-          .post('/api/auth/refresh-token', data: {'refreshToken': refresh});
-      final data = res.data as Map<String, dynamic>;
-      final access = data['accessToken'] as String?;
-      final newRefresh = data['refreshToken'] as String? ?? refresh;
-      if (access == null) return false;
-      await _storage.saveTokens(accessToken: access, refreshToken: newRefresh);
-      return true;
+      final refreshToken = await _storage.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) return false;
+
+      // Use a temporary Dio instance to avoid interceptor loops
+      final tempDio = Dio(dio.options);
+      // Remove auth header for refresh request
+      tempDio.options.headers.remove('Authorization');
+
+      debugPrint('Attempting refresh token...');
+      final response = await tempDio.post(
+        '/api/auth/refresh-token',
+        data: {'refreshToken': refreshToken},
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Parse response
+        final body = response.data;
+        // Adapt based on API response structure.
+        // Assuming: { success: true, data: { accessToken: "...", refreshToken: "..." } }
+        // OR direct: { accessToken: "...", refreshToken: "..." }
+
+        Map<String, dynamic> data;
+        if (body is Map<String, dynamic>) {
+          if (body.containsKey('data') && body['data'] is Map) {
+            data = body['data'];
+          } else {
+            data = body;
+          }
+        } else {
+          return false;
+        }
+
+        final newAccessToken = data['accessToken'] ?? data['token'];
+        final newRefreshToken = data['refreshToken'];
+
+        if (newAccessToken != null) {
+          debugPrint('Token refresh successful');
+          await _storage.saveTokens(
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken ?? refreshToken,
+          );
+          return true;
+        }
+      }
+      debugPrint('Token refresh failed with status: ${response.statusCode}');
+      return false;
     } catch (e) {
-      debugPrint('Token refresh failed: $e');
-      await _storage.clear();
+      debugPrint('Token refresh error: $e');
       return false;
     }
   }

@@ -1,0 +1,457 @@
+import 'package:flutter/material.dart';
+import 'package:dramus/theme.dart';
+import 'package:dramus/screens/agence/edit_profile_screen.dart';
+import 'package:dramus/screens/agence/help_center_screen.dart';
+import 'package:dramus/services/auth_service.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _pushNotifications = true;
+  bool _emailNotifications = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Paramètres',
+          style: TextStyle(
+            color: DramusColors.darkText,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: DramusColors.white,
+        foregroundColor: DramusColors.darkText,
+        elevation: 1,
+      ),
+      backgroundColor: DramusColors.lightBackground,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildSectionHeader(context, 'Compte'),
+            _buildSettingsItem(
+              context,
+              icon: Icons.person_outline,
+              title: 'Modifier mon profil',
+              subtitle: 'Nom, prénom, téléphone',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const EditProfileScreen(),
+                  ),
+                );
+              },
+            ),
+            _buildDivider(),
+            _buildSettingsItem(
+              context,
+              icon: Icons.lock_outline,
+              title: 'Mot de passe',
+              subtitle: 'Changer votre mot de passe',
+              onTap: () => _showChangePasswordDialog(context),
+            ),
+            _buildSectionHeader(context, 'Notifications'),
+            _buildSwitchItem(
+              context,
+              icon: Icons.notifications_none,
+              title: 'Notifications push',
+              value: _pushNotifications,
+              onChanged: (val) => setState(() => _pushNotifications = val),
+            ),
+            _buildDivider(),
+            _buildSwitchItem(
+              context,
+              icon: Icons.mail_outline,
+              title: 'Emails',
+              subtitle: 'Recevoir des mises à jour par email',
+              value: _emailNotifications,
+              onChanged: (val) => setState(() => _emailNotifications = val),
+            ),
+            _buildSectionHeader(context, 'Application'),
+            _buildSettingsItem(
+              context,
+              icon: Icons.language,
+              title: 'Langue',
+              trailing: Text(
+                'Français',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: DramusColors.secondaryText,
+                    ),
+              ),
+              onTap: () {},
+            ),
+            _buildSectionHeader(context, 'À propos'),
+            _buildSettingsItem(
+              context,
+              icon: Icons.description_outlined,
+              title: 'Conditions générales',
+              onTap: () {},
+            ),
+            _buildDivider(),
+            _buildSettingsItem(
+              context,
+              icon: Icons.privacy_tip_outlined,
+              title: 'Politique de confidentialité',
+              onTap: () {},
+            ),
+            _buildDivider(),
+            _buildSettingsItem(
+              context,
+              icon: Icons.help_outline,
+              title: 'Aide & Support',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const HelpCenterScreen(),
+                  ),
+                );
+              },
+            ),
+            SizedBox(height: AppSpacing.xxl),
+            Center(
+              child: Text(
+                'Version 1.0.0',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: DramusColors.secondaryText,
+                    ),
+              ),
+            ),
+            SizedBox(height: AppSpacing.xxl),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xl,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: DramusColors.secondaryText,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    Widget? trailing,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: DramusColors.white,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: DramusColors.primaryTeal, size: 24),
+              SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    if (subtitle != null) ...[
+                      SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: DramusColors.secondaryText,
+                            ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (trailing != null)
+                trailing
+              else
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: DramusColors.secondaryText.withValues(alpha: 0.5),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwitchItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Material(
+      color: DramusColors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing
+              .sm, // Un peu moins de padding vertical car Switch est haut
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: DramusColors.primaryTeal, size: 24),
+            SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  if (subtitle != null) ...[
+                    SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: DramusColors.secondaryText,
+                          ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: DramusColors.primaryTeal,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          title: Text(
+            'Modifier le mot de passe',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: DramusColors.darkPetroleum,
+                ),
+          ),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Entrez votre mot de passe actuel et votre nouveau mot de passe.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: DramusColors.secondaryText,
+                        ),
+                  ),
+                  SizedBox(height: AppSpacing.lg),
+                  TextFormField(
+                    controller: currentPasswordController,
+                    obscureText: obscureCurrent,
+                    decoration: InputDecoration(
+                      labelText: 'Mot de passe actuel',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscureCurrent
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          size: 20,
+                        ),
+                        onPressed: () => setDialogState(
+                            () => obscureCurrent = !obscureCurrent),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                    validator: (value) =>
+                        (value == null || value.isEmpty) ? 'Requis' : null,
+                  ),
+                  SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: newPasswordController,
+                    obscureText: obscureNew,
+                    decoration: InputDecoration(
+                      labelText: 'Nouveau mot de passe',
+                      prefixIcon: const Icon(Icons.lock_open_outlined),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscureNew ? Icons.visibility_off : Icons.visibility,
+                          size: 20,
+                        ),
+                        onPressed: () =>
+                            setDialogState(() => obscureNew = !obscureNew),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Requis';
+                      if (value.length < 8) return 'Minimum 8 caractères';
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: confirmPasswordController,
+                    obscureText: obscureConfirm,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmer le nouveau mot de passe',
+                      prefixIcon: const Icon(Icons.check_circle_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscureConfirm
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          size: 20,
+                        ),
+                        onPressed: () => setDialogState(
+                            () => obscureConfirm = !obscureConfirm),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value != newPasswordController.text) {
+                        return 'Les mots de passe ne correspondent pas';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(context),
+              child: const Text(
+                'Annuler',
+                style: TextStyle(color: DramusColors.secondaryText),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        setDialogState(() => isLoading = true);
+                        try {
+                          final success =
+                              await AuthService.instance.updatePassword(
+                            currentPasswordController.text,
+                            newPasswordController.text,
+                          );
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(success
+                                    ? 'Mot de passe mis à jour avec succès !'
+                                    : 'Erreur lors de la mise à jour (vérifiez votre mot de passe actuel)'),
+                                backgroundColor: success
+                                    ? DramusColors.saleGreen
+                                    : DramusColors.notificationRed,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Une erreur est survenue : $e'),
+                                backgroundColor: DramusColors.notificationRed,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (context.mounted) {
+                            setDialogState(() => isLoading = false);
+                          }
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DramusColors.primaryTeal,
+                foregroundColor: DramusColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: DramusColors.white,
+                      ),
+                    )
+                  : const Text('Valider'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return const Divider(height: 1, thickness: 1, indent: 56);
+  }
+}

@@ -22,12 +22,17 @@ dependencies:
   geolocator: ^11.0.0
   connectivity_plus: ^7.0.0
   cached_network_image: ^3.3.1
+  url_launcher: ^6.3.0
   flutter_svg: ^2.0.10
   shimmer: ^3.0.0
   # Déjà installées
   
   # Nouvelles dépendances
   http: ^1.1.0 
+  package_info_plus: ^9.0.0
+  firebase_core: ^4.4.0
+  firebase_messaging: ^16.1.1
+  flutter_local_notifications: ^20.1.0
 
 dev_dependencies:
   flutter_test:
@@ -41,5 +46,7 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/icons/dreamflow_icon.jpg
+  image_path: "assets/icons/dramus_logo.png"
+  adaptive_icon_background: "#1E2330"
+  adaptive_icon_foreground: "assets/icons/dramus_logo.png"
   remove_alpha_ios: true

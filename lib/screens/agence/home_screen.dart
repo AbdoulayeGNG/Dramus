@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:dramus/models/property.dart';
 import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/services/message_service.dart';
+import 'package:dramus/services/favorites_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/theme.dart';
-import 'package:dramus/widgets/custom_button.dart';
 import 'package:dramus/widgets/property_card.dart';
 import 'package:dramus/screens/agence/property_detail_screen.dart';
 import 'package:dramus/screens/agence/edit_property_screen.dart';
+import 'package:dramus/screens/agence/favorites_screen.dart';
 import 'package:dramus/widgets/delete_confirmation_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Property> _properties = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -30,9 +32,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _isLoading = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadProperties();
       _applyFilters();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -78,8 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeroSection(context),
-          //_buildQuickActionsSection(context),
-          _buildStatisticsSection(context),
+          // _buildQuickActionsSection supprimé
           _buildFeaturedListingsSection(context),
         ],
       ),
@@ -90,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Removed gradient/background as requested — section now uses transparent background.
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -157,39 +164,54 @@ class _HomeScreenState extends State<HomeScreen> {
                   _properties.fold<int>(0, (sum, p) => sum + p.views);
               final messageService = context.watch<MessageService>();
               final unreadMessages = messageService.getUnreadCount();
-              final favoritesCount = 0; // TODO: implement favorites
+
+              // Utilisation du FavoritesService pour le vrai compte
+              final favoritesService = context.watch<FavoritesService>();
+              final favoritesCount = favoritesService.favoriteIds.length;
 
               final cards = [
                 {
                   'label': 'Annonces actives',
                   'value': activeCount.toString(),
                   'icon': Icons.inventory_2_outlined,
-                  'color': DramusColors.primaryTeal
+                  'color': DramusColors.primaryTeal,
+                  'onTap': () {} // Rien pour l'instant
                 },
                 {
                   'label': 'Vues',
                   'value': viewsCount.toString(),
                   'icon': Icons.remove_red_eye_outlined,
-                  'color': DramusColors.deepTeal
+                  'color': DramusColors.deepTeal,
+                  'onTap': () {}
                 },
                 {
                   'label': 'Messages',
                   'value': unreadMessages.toString(),
                   'icon': Icons.mail_outline,
-                  'color': DramusColors.notificationRed
+                  'color': DramusColors.notificationRed,
+                  'onTap': () {
+                    // Idéalement changer l'onglet vers Messages
+                  }
                 },
                 {
-                  'label': 'Favoris',
+                  'label': 'Favoris', // C'est ici qu'on navigue
                   'value': favoritesCount.toString(),
                   'icon': Icons.favorite_border,
-                  'color': DramusColors.premiumYellow
+                  'color': DramusColors.premiumYellow,
+                  'onTap': () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const FavoritesScreen(),
+                      ),
+                    );
+                  }
                 },
               ];
 
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final maxWidth = constraints.maxWidth;
-                  final spacing = AppSpacing.md;
+                  const spacing = AppSpacing.md;
                   // compute card width to have exactly 2 cards per row with spacing
                   final cardWidth =
                       ((maxWidth - spacing) / 2).clamp(140.0, 420.0);
@@ -200,12 +222,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: cards.map((c) {
                       return SizedBox(
                         width: cardWidth,
-                        child: _buildStatCard(
-                          context,
-                          label: c['label'] as String,
-                          value: c['value'] as String,
-                          icon: c['icon'] as IconData,
-                          color: c['color'] as Color,
+                        child: GestureDetector(
+                          onTap: c['onTap'] as VoidCallback?,
+                          child: _buildStatCard(
+                            context,
+                            label: c['label'] as String,
+                            value: c['value'] as String,
+                            icon: c['icon'] as IconData,
+                            color: c['color'] as Color,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -219,175 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildQuickActionsSection(BuildContext context) {
-    return Padding(
-      padding: AppSpacing.paddingLg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Actions rapides',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionCard(
-                  context,
-                  icon: Icons.add_circle_outline,
-                  label: 'Publier',
-                  color: DramusColors.primaryTeal,
-                  onTap: () {},
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _buildActionCard(
-                  context,
-                  icon: Icons.mail_outline,
-                  label: 'Messages',
-                  color: DramusColors.deepTeal,
-                  badge: Consumer<MessageService>(
-                    builder: (context, messageService, _) {
-                      final unreadCount = messageService.getUnreadCount();
-                      return unreadCount > 0
-                          ? Text(
-                              '$unreadCount',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: DramusColors.notificationRed,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            )
-                          : SizedBox.shrink();
-                    },
-                  ),
-                  onTap: () {},
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _buildActionCard(
-                  context,
-                  icon: Icons.favorite_outline,
-                  label: 'Favoris',
-                  color: DramusColors.premiumYellow,
-                  onTap: () {},
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-    Widget? badge,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Card(
-        color: DramusColors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: const BorderSide(
-            color: DramusColors.border,
-            width: 1,
-          ),
-        ),
-        child: Padding(
-          padding: AppSpacing.paddingMd,
-          child: Column(
-            children: [
-              Stack(
-                children: [
-                  Container(
-                    padding: AppSpacing.paddingMd,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: color,
-                      size: 28,
-                    ),
-                  ),
-                  if (badge != null)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: SizedBox(
-                        child: badge,
-                      ),
-                    ),
-                ],
-              ),
-              SizedBox(height: AppSpacing.md),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatisticsSection(BuildContext context) {
-    return Padding(
-      padding: AppSpacing.paddingLg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Statistiques',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  label: 'Annonces en vente',
-                  value: '1,523',
-                  icon: Icons.sell,
-                  color: DramusColors.saleGreen,
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  label: 'Annonces en location',
-                  value: '1,324',
-                  icon: Icons.apartment,
-                  color: DramusColors.rentYellow,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // METHODES SUPPRIMEES : _buildQuickActionsSection, _buildActionCard
 
   Widget _buildStatCard(
     BuildContext context, {
@@ -445,122 +302,71 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
           ),
           SizedBox(height: AppSpacing.lg),
-          Builder(
-            builder: (context) {
-              final recentProperties = _properties.take(2).toList();
-              return Column(
-                children: recentProperties
-                    .map(
-                      (property) => Padding(
-                        padding: EdgeInsets.only(
-                          bottom: AppSpacing.lg,
-                        ),
-                        child: PropertyCard(
-                          property: property,
-                          onTap: () {},
-                          onFavoriteToggle: (isFavorite) {
-                            // TODO: implement
-                          },
-                          canManage: true,
-                          onViewDetails: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    PropertyDetailScreen(property: property),
-                              ),
-                            );
-                          },
-                          onEdit: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    EditPropertyScreen(property: property),
-                              ),
-                            );
-                          },
-                          onDelete: () {
-                            _showDeleteConfirmationDialog(context, property);
-                          },
-                        ),
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: CircularProgressIndicator(
+                  color: DramusColors.primaryTeal,
+                ),
+              ),
+            )
+          else
+            Builder(
+              builder: (context) {
+                final recentProperties = _properties.take(2).toList();
+                if (recentProperties.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        'Aucune annonce récente',
+                        style: TextStyle(color: DramusColors.secondaryText),
                       ),
-                    )
-                    .toList(),
-              );
-            },
-          ),
+                    ),
+                  );
+                }
+                return Column(
+                  children: recentProperties
+                      .map(
+                        (property) => Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.lg,
+                          ),
+                          child: PropertyCard(
+                            property: property,
+                            onTap: () {},
+                            onFavoriteToggle: (isFavorite) {
+                              // TODO: implement
+                            },
+                            canManage: true,
+                            onViewDetails: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      PropertyDetailScreen(property: property),
+                                ),
+                              );
+                            },
+                            onEdit: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      EditPropertyScreen(property: property),
+                                ),
+                              );
+                            },
+                            onDelete: () {
+                              _showDeleteConfirmationDialog(context, property);
+                            },
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
         ],
-      ),
-    );
-  }
-
-  // helper card used by the hero section
-  Widget _buildDashboardCard(
-    BuildContext context, {
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    // Use Expanded for the text column and limit lines to avoid RenderFlex overflow.
-    return Card(
-      color: DramusColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      elevation: 2,
-      child: Padding(
-        padding: AppSpacing.paddingMd,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            SizedBox(width: AppSpacing.md),
-
-            // Make the column flexible so long texts wrap/ellipsis instead of overflowing
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: DramusColors.darkText,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  SizedBox(height: AppSpacing.xs),
-                  Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: DramusColors.secondaryText,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: Duration(seconds: 2),
       ),
     );
   }

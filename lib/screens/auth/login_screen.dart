@@ -8,6 +8,7 @@ import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/screens/auth/register_screen.dart';
 import 'package:dramus/screens/clients/main_app_screen.dart';
 import 'package:dramus/screens/agence/main_app_screen.dart';
+import 'package:dramus/screens/auth/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -245,13 +246,22 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(height: AppSpacing.sm),
 
                             // Actions row
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              runSpacing: AppSpacing.xs,
                               children: [
                                 Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Checkbox(value: true, onChanged: (_) {}),
-                                    Text('Se souvenir',
+                                    SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: Checkbox(
+                                          value: true, onChanged: (_) {}),
+                                    ),
+                                    SizedBox(width: AppSpacing.xs),
+                                    Text('Se souvenir de moi',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall),
@@ -259,11 +269,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 TextButton(
                                   onPressed: () {
-                                    // TODO: Forgot password
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const ForgotPasswordScreen(),
+                                      ),
+                                    );
                                   },
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
                                   child: Text('Mot de passe oublié ?',
                                       style: TextStyle(
-                                          color: DramusColors.primaryTeal)),
+                                          color: DramusColors.primaryTeal,
+                                          fontSize: 12)),
                                 ),
                               ],
                             ),

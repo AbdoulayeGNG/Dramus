@@ -16,7 +16,7 @@ class FilterPanel extends StatefulWidget {
 class _FilterPanelState extends State<FilterPanel> {
   String _selectedType = 'all';
   int _minPrice = 0;
-  int _maxPrice = 5000000;
+  int _maxPrice = 10000000000;
 
   @override
   Widget build(BuildContext context) {
@@ -33,25 +33,50 @@ class _FilterPanelState extends State<FilterPanel> {
                 ),
           ),
           SizedBox(height: AppSpacing.lg),
-          Text(
-            'Type de propriété',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          DropdownButtonFormField<String>(
+            value: _selectedType,
+            decoration: InputDecoration(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                borderSide: const BorderSide(color: DramusColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                borderSide: const BorderSide(color: DramusColors.border),
+              ),
+              filled: true,
+              fillColor: DramusColors.lightBackground,
+            ),
+            dropdownColor: Theme.of(context).colorScheme.surface,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
-          ),
-          SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.md,
-            children: [
-              _buildFilterChip('Tous', 'all'),
-              _buildFilterChip('Maison', 'Maison'),
-              _buildFilterChip('Appartement', 'Appartement'),
-              _buildFilterChip('Terrain', 'Terrain'),
+            items: const [
+              DropdownMenuItem(value: 'all', child: Text('Tous les types')),
+              DropdownMenuItem(value: 'Maison', child: Text('Maison')),
+              DropdownMenuItem(
+                  value: 'Appartement', child: Text('Appartement')),
+              DropdownMenuItem(value: 'Terrain', child: Text('Terrain')),
+              DropdownMenuItem(value: 'Bureau', child: Text('Bureau')),
+              DropdownMenuItem(value: 'Chambre', child: Text('Chambre')),
+              DropdownMenuItem(value: 'Magasin', child: Text('Magasin')),
+              DropdownMenuItem(value: 'Villa', child: Text('Villa')),
+              DropdownMenuItem(value: 'Studio', child: Text('Studio')),
             ],
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  _selectedType = value;
+                });
+                widget.onFilterChanged(_selectedType, _minPrice, _maxPrice);
+              }
+            },
           ),
           SizedBox(height: AppSpacing.lg),
           Text(
-            'Budget: ${_minPrice.toStringAsFixed(0)} - ${_maxPrice.toStringAsFixed(0)} GNF',
+            'Budget: ${_formatPrice(_minPrice)} - ${_formatPrice(_maxPrice)}',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -60,7 +85,7 @@ class _FilterPanelState extends State<FilterPanel> {
           RangeSlider(
             values: RangeValues(_minPrice.toDouble(), _maxPrice.toDouble()),
             min: 0,
-            max: 10000000,
+            max: 10000000000,
             onChanged: (values) {
               setState(() {
                 _minPrice = values.start.toInt();
@@ -76,28 +101,14 @@ class _FilterPanelState extends State<FilterPanel> {
     );
   }
 
-  Widget _buildFilterChip(String label, String value) {
-    return FilterChip(
-      label: Text(label),
-      selected: _selectedType == value,
-      onSelected: (selected) {
-        setState(() {
-          _selectedType = value;
-        });
-        widget.onFilterChanged(_selectedType, _minPrice, _maxPrice);
-      },
-      backgroundColor: DramusColors.white,
-      selectedColor: DramusColors.primaryTeal,
-      labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: _selectedType == value
-                ? DramusColors.white
-                : DramusColors.darkText,
-          ),
-      side: BorderSide(
-        color: _selectedType == value
-            ? DramusColors.primaryTeal
-            : DramusColors.border,
-      ),
-    );
+  String _formatPrice(int price) {
+    if (price >= 1000000000) {
+      return '${(price / 1000000000).toStringAsFixed(1)} Milliards GNF';
+    } else if (price >= 1000000) {
+      return '${(price / 1000000).toStringAsFixed(1)} Millions GNF';
+    } else if (price >= 1000) {
+      return '${(price / 1000).toStringAsFixed(0)}K GNF';
+    }
+    return '$price GNF';
   }
 }

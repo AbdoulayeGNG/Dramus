@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/models/user_model.dart';
-import 'package:dramus/services/user_service.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/custom_button.dart';
+import 'package:dramus/screens/auth/login_screen.dart';
+import 'package:dramus/screens/agence/favorites_screen.dart';
+import 'package:dramus/screens/agence/listings_screen.dart';
+import 'package:dramus/screens/agence/settings_screen.dart';
+import 'package:dramus/screens/agence/help_center_screen.dart';
+import 'package:dramus/screens/agence/about_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -23,11 +29,49 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _handleLogout(
+      BuildContext context, AuthController authController) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Déconnexion',
+              style: TextStyle(color: DramusColors.notificationRed),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await authController.signOut();
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<UserService>(
-      builder: (context, userService, _) {
-        final user = userService.currentUser;
+    return Consumer<AuthController>(
+      builder: (context, authController, _) {
+        final user = authController.user;
+
+        if (user == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
         return SingleChildScrollView(
           child: Column(
@@ -40,7 +84,7 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     _buildProfileInfo(context, user),
                     SizedBox(height: AppSpacing.xxl),
-                    _buildMenuSection(context),
+                    _buildMenuSection(context, authController),
                     SizedBox(height: AppSpacing.xxl),
                   ],
                 ),
@@ -54,6 +98,7 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildProfileHeader(BuildContext context, User user) {
     return Container(
+      width: double.infinity,
       color: DramusColors.darkPetroleum,
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -63,11 +108,24 @@ class ProfileScreen extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundImage: NetworkImage(user.avatar),
+            backgroundColor: DramusColors.primaryTeal,
+            backgroundImage:
+                user.avatar.isNotEmpty ? NetworkImage(user.avatar) : null,
+            child: user.avatar.isEmpty
+                ? Text(
+                    user.initials,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: DramusColors.white,
+                    ),
+                  )
+                : null,
           ),
           SizedBox(height: AppSpacing.lg),
           Text(
             user.fullName,
+            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: DramusColors.white,
                   fontWeight: FontWeight.bold,
@@ -114,19 +172,15 @@ class ProfileScreen extends StatelessWidget {
           value: user.email,
         ),
         SizedBox(height: AppSpacing.md),
-        _buildInfoCard(
-          context,
-          icon: Icons.phone_outlined,
-          label: 'Téléphone',
-          value: user.phone,
-        ),
-      /*  SizedBox(height: AppSpacing.md),
-        _buildInfoCard(
-          context,
-          icon: Icons.info_outline,
-          label: 'Bio',
-          value: user.bio,
-        ),*/
+        if (user.phone.isNotEmpty) ...[
+          _buildInfoCard(
+            context,
+            icon: Icons.phone_outlined,
+            label: 'Téléphone',
+            value: user.phone,
+          ),
+          SizedBox(height: AppSpacing.md),
+        ],
       ],
     );
   }
@@ -175,7 +229,8 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuSection(BuildContext context) {
+  Widget _buildMenuSection(
+      BuildContext context, AuthController authController) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -190,40 +245,79 @@ class ProfileScreen extends StatelessWidget {
           context,
           icon: Icons.favorite_outline,
           label: 'Mes favoris',
-          onTap: () {},
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const FavoritesScreen(),
+              ),
+            );
+          },
         ),
         SizedBox(height: AppSpacing.md),
         _buildMenuItem(
           context,
           icon: Icons.home_outlined,
           label: 'Mes annonces',
-          onTap: () {},
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => Scaffold(
+                  appBar: AppBar(
+                    title: const Text('Mes annonces',
+                        style: TextStyle(color: DramusColors.darkText)),
+                    backgroundColor: DramusColors.white,
+                    foregroundColor: DramusColors.darkText,
+                    elevation: 1,
+                  ),
+                  body: const ListingsScreen(),
+                ),
+              ),
+            );
+          },
         ),
         SizedBox(height: AppSpacing.md),
         _buildMenuItem(
           context,
           icon: Icons.settings_outlined,
           label: 'Paramètres',
-          onTap: () {},
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const SettingsScreen(),
+              ),
+            );
+          },
         ),
         SizedBox(height: AppSpacing.md),
         _buildMenuItem(
           context,
           icon: Icons.help_outline,
           label: 'Centre d\'aide',
-          onTap: () {},
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const HelpCenterScreen(),
+              ),
+            );
+          },
         ),
         SizedBox(height: AppSpacing.md),
         _buildMenuItem(
           context,
           icon: Icons.info_outline,
           label: 'À propos',
-          onTap: () {},
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const AboutScreen(),
+              ),
+            );
+          },
         ),
         SizedBox(height: AppSpacing.xxl),
         CustomButton(
           label: 'Déconnexion',
-          onPressed: () {},
+          onPressed: () => _handleLogout(context, authController),
           variant: ButtonVariant.danger,
           isFullWidth: true,
         ),

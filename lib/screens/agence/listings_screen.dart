@@ -20,6 +20,7 @@ class ListingsScreen extends StatefulWidget {
 
 class _ListingsScreenState extends State<ListingsScreen> {
   late List<Property> _filteredListings;
+  bool _isLoading = true;
   String _selectedType = 'all';
   int _minPrice = 0;
   int _maxPrice = 5000000;
@@ -29,6 +30,7 @@ class _ListingsScreenState extends State<ListingsScreen> {
   void initState() {
     super.initState();
     _filteredListings = []; // Initialiser la liste vide
+    _isLoading = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final listingService = context.read<ListingService>();
       final authController = context.read<AuthController>();
@@ -44,6 +46,11 @@ class _ListingsScreenState extends State<ListingsScreen> {
         }
       }
       _applyFilters();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -137,7 +144,16 @@ class _ListingsScreenState extends State<ListingsScreen> {
             ),
           ),
           SizedBox(height: AppSpacing.lg),
-          if (_filteredListings.isEmpty)
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(
+                  color: DramusColors.primaryTeal,
+                ),
+              ),
+            )
+          else if (_filteredListings.isEmpty)
             Center(
               child: Padding(
                 padding: AppSpacing.paddingXl,
@@ -178,7 +194,7 @@ class _ListingsScreenState extends State<ListingsScreen> {
                   crossAxisSpacing: AppSpacing.lg,
                   mainAxisSpacing: AppSpacing.lg,
                   childAspectRatio:
-                      MediaQuery.of(context).size.width > 600 ? 0.8 : 1,
+                      MediaQuery.of(context).size.width > 600 ? 0.8 : 0.9,
                 ),
                 itemCount: _filteredListings.length,
                 itemBuilder: (context, index) {
@@ -293,13 +309,22 @@ class ListingDetailScreen extends StatefulWidget {
 
 class _ListingDetailScreenState extends State<ListingDetailScreen> {
   Property? _property;
+  late PageController _pageController;
+  int _currentImageIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProperty();
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProperty() async {
@@ -368,12 +393,59 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
   Widget _buildImageGallery(BuildContext context, Property property) {
     return Column(
       children: [
-        Image.network(
-          property.images.isNotEmpty ? property.images.first : '',
-          height: 300,
-          width: double.infinity,
-          fit: BoxFit.cover,
-        ),
+        property.images.isNotEmpty
+            ? Stack(
+                children: [
+                  SizedBox(
+                    height: 300,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentImageIndex = index;
+                        });
+                      },
+                      itemCount: property.images.length,
+                      itemBuilder: (context, index) {
+                        return Image.network(
+                          property.images[index],
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        );
+                      },
+                    ),
+                  ),
+                  if (property.images.length > 1)
+                    Positioned(
+                      bottom: 16,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_currentImageIndex + 1}/${property.images.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            : Container(
+                height: 300,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                ),
+                child: Icon(Icons.home, size: 100, color: Colors.grey[400]),
+              ),
         if (property.images.length > 1)
           Container(
             height: 100,
@@ -382,20 +454,34 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
               scrollDirection: Axis.horizontal,
               itemCount: property.images.length,
               itemBuilder: (context, index) {
-                return Container(
-                  margin: EdgeInsets.only(right: AppSpacing.md),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(
-                      color: DramusColors.border,
+                final isSelected = _currentImageIndex == index;
+                return GestureDetector(
+                  onTap: () {
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  child: Container(
+                    margin: EdgeInsets.only(right: AppSpacing.md),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(
+                        color: isSelected
+                            ? DramusColors.primaryTeal
+                            : DramusColors.border,
+                        width: isSelected ? 2 : 1,
+                      ),
                     ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    child: Image.network(
-                      property.images[index],
-                      width: 100,
-                      fit: BoxFit.cover,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      child: Image.network(
+                        property.images[index],
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 );

@@ -30,7 +30,8 @@ class FavoritesService extends ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         _favoriteIds.add(propertyId);
-        debugPrint('FavoritesService: Successfully added favorite: $propertyId');
+        debugPrint(
+            'FavoritesService: Successfully added favorite: $propertyId');
         notifyListeners();
         return true;
       }
@@ -39,8 +40,13 @@ class FavoritesService extends ChangeNotifier {
           'FavoritesService: Failed to add favorite - Status: ${response.statusCode}');
       return false;
     } on DioException catch (e) {
-      debugPrint(
-          'FavoritesService: Error adding favorite: ${e.message}');
+      debugPrint('FavoritesService: Error adding favorite: ${e.message}');
+      if (e.response != null) {
+        debugPrint(
+            'FavoritesService: Error response data: ${e.response?.data}');
+        debugPrint(
+            'FavoritesService: Error status code: ${e.response?.statusCode}');
+      }
       _isLoading = false;
       notifyListeners();
       return false;
@@ -73,8 +79,7 @@ class FavoritesService extends ChangeNotifier {
           'FavoritesService: Failed to remove favorite - Status: ${response.statusCode}');
       return false;
     } on DioException catch (e) {
-      debugPrint(
-          'FavoritesService: Error removing favorite: ${e.message}');
+      debugPrint('FavoritesService: Error removing favorite: ${e.message}');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -125,13 +130,11 @@ class FavoritesService extends ChangeNotifier {
             .where((id) => id.isNotEmpty)
             .toSet();
 
-        debugPrint(
-            'FavoritesService: Loaded ${_favoriteIds.length} favorites');
+        debugPrint('FavoritesService: Loaded ${_favoriteIds.length} favorites');
         notifyListeners();
       }
     } on DioException catch (e) {
-      debugPrint(
-          'FavoritesService: Error loading favorites: ${e.message}');
+      debugPrint('FavoritesService: Error loading favorites: ${e.message}');
     } finally {
       _isLoading = false;
       notifyListeners();

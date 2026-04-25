@@ -4,6 +4,8 @@ class Message {
   final String receiverId;
   final String content;
   final String? propertyId;
+  final String? senderName;
+  final String? receiverName;
   final bool read;
   final DateTime createdAt;
 
@@ -13,19 +15,47 @@ class Message {
     required this.receiverId,
     required this.content,
     required this.propertyId,
+    this.senderName,
+    this.receiverName,
     required this.read,
     required this.createdAt,
   });
 
-  factory Message.fromJson(Map<String, dynamic> json) => Message(
-        id: json['id']?.toString() ?? '',
-        senderId: json['senderId'] ?? '',
-        receiverId: json['receiverId'] ?? '',
-        content: json['content'] ?? '',
-        propertyId: json['propertyId']?.toString(),
-        read: (json['read'] as bool?) ?? false,
-        createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
-      );
+  factory Message.fromJson(Map<String, dynamic> json) {
+    // Helper pour extraire l'ID depuis un objet ou une string
+    String extractId(dynamic value) {
+      if (value == null) return '';
+      if (value is String) return value.trim();
+      if (value is Map<String, dynamic>) {
+        return (value['_id']?.toString() ?? value['id']?.toString() ?? '')
+            .trim();
+      }
+      return value.toString().trim();
+    }
+
+    // Helper pour extraire le nom
+    String? extractName(dynamic value) {
+      if (value is Map<String, dynamic>) {
+        return value['fullName'] ??
+            '${value['firstName'] ?? ''} ${value['lastName'] ?? ''}'.trim();
+      }
+      return null;
+    }
+
+    return Message(
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+      senderId: extractId(json['senderId']),
+      receiverId: extractId(json['receiverId']),
+      content: json['content'] ?? '',
+      propertyId:
+          json['propertyId'] != null ? extractId(json['propertyId']) : null,
+      senderName: extractName(json['senderId']),
+      receiverName: extractName(json['receiverId']),
+      read: (json['read'] as bool?) ?? false,
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -37,8 +67,6 @@ class Message {
         'createdAt': createdAt.toIso8601String(),
       };
 
-
-
   Message copyWith({
     String? id,
     String? senderId,
@@ -47,7 +75,6 @@ class Message {
     String? propertyId,
     bool? read,
     DateTime? createdAt,
-  
   }) {
     return Message(
       id: id ?? this.id,
@@ -67,6 +94,7 @@ class Conversation {
   final String user1Name;
   final String userId2;
   final String user2Name;
+  final String? user2Avatar; // Avatar de l'autre utilisateur
   final Message lastMessage;
   final DateTime updatedAt;
 
@@ -76,6 +104,7 @@ class Conversation {
     required this.user1Name,
     required this.userId2,
     required this.user2Name,
+    this.user2Avatar,
     required this.lastMessage,
     required this.updatedAt,
   });
@@ -86,6 +115,7 @@ class Conversation {
     String? user1Name,
     String? userId2,
     String? user2Name,
+    String? user2Avatar,
     Message? lastMessage,
     DateTime? updatedAt,
   }) {
@@ -95,6 +125,7 @@ class Conversation {
       user1Name: user1Name ?? this.user1Name,
       userId2: userId2 ?? this.userId2,
       user2Name: user2Name ?? this.user2Name,
+      user2Avatar: user2Avatar ?? this.user2Avatar,
       lastMessage: lastMessage ?? this.lastMessage,
       updatedAt: updatedAt ?? this.updatedAt,
     );

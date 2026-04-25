@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dramus/models/property.dart';
 import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/services/message_service.dart';
+import 'package:dramus/services/favorites_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/filter_panel.dart';
 import 'package:dramus/widgets/header_section.dart';
 import 'package:dramus/widgets/property_card.dart';
+import 'package:dramus/screens/clients/main_app_screen.dart';
 
 class ListingsScreen extends StatefulWidget {
   const ListingsScreen({super.key});
@@ -17,22 +20,33 @@ class ListingsScreen extends StatefulWidget {
 
 class _ListingsScreenState extends State<ListingsScreen> {
   late List<Property> _filteredListings;
+  bool _isLoading = true;
   String _selectedType = 'all';
   int _minPrice = 0;
-  int _maxPrice = 5000000;
+  int _maxPrice = 500000000000;
   final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _filteredListings = []; // Initialiser la liste vide
+    _filteredListings = [];
+    _isLoading = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final listingService = context.read<ListingService>();
       // Charger les données seulement si elles ne sont pas déjà en cache
       if (!listingService.isLoaded) {
         await listingService.getAllListings();
       }
+      // Toujours charger les favoris pour s'assurer que les cœurs sont à jour
+      if (mounted) {
+        await context.read<FavoritesService>().loadFavorites();
+      }
       _applyFilters();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -126,7 +140,16 @@ class _ListingsScreenState extends State<ListingsScreen> {
             ),
           ),
           SizedBox(height: AppSpacing.lg),
-          if (_filteredListings.isEmpty)
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(
+                  color: DramusColors.primaryTeal,
+                ),
+              ),
+            )
+          else if (_filteredListings.isEmpty)
             Center(
               child: Padding(
                 padding: AppSpacing.paddingXl,
@@ -167,7 +190,7 @@ class _ListingsScreenState extends State<ListingsScreen> {
                   crossAxisSpacing: AppSpacing.lg,
                   mainAxisSpacing: AppSpacing.lg,
                   childAspectRatio:
-                      MediaQuery.of(context).size.width > 600 ? 0.8 : 1,
+                      MediaQuery.of(context).size.width > 600 ? 0.8 : 0.9,
                 ),
                 itemCount: _filteredListings.length,
                 itemBuilder: (context, index) {
@@ -220,22 +243,33 @@ class ListingDetailScreen extends StatefulWidget {
 
 class _ListingDetailScreenState extends State<ListingDetailScreen> {
   Property? _property;
+  late PageController _pageController;
+  int _currentImageIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProperty();
     });
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadProperty() async {
     try {
-      debugPrint('ListingDetailScreen: Loading property with ID: ${widget.listingId}');
+      debugPrint(
+          'ListingDetailScreen: Loading property with ID: ${widget.listingId}');
       final listingService = context.read<ListingService>();
       final property = await listingService.getListingById(widget.listingId);
-      debugPrint('ListingDetailScreen: Property loaded: ${property?.title ?? "NULL"}');
-      
+      debugPrint(
+          'ListingDetailScreen: Property loaded: ${property?.title ?? "NULL"}');
+
       if (mounted) {
         setState(() {
           _property = property;
@@ -313,68 +347,121 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     return Column(
       children: [
         property.images.isNotEmpty
-            ? Image.network(
-                property.images.first,
-                height: 300,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
+            ? Stack(
+                children: [
+                  SizedBox(
                     height: 300,
-                    width: double.infinity,
-                    color: Colors.grey[200],
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: DramusColors.primaryTeal,
-                      ),
+                    child: PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentImageIndex = index;
+                        });
+                      },
+                      itemCount: property.images.length,
+                      itemBuilder: (context, index) {
+                        return Image.network(
+                          property.images[index],
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: DramusColors.primaryTeal,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[200],
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.broken_image_outlined,
+                                    size: 80,
+                                    color: Colors.grey[400],
+                                  ),
+                                  SizedBox(height: AppSpacing.md),
+                                  Text(
+                                    'Image non disponible',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 300,
-                    width: double.infinity,
-                    color: Colors.grey[200],
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.broken_image_outlined,
-                          size: 80,
-                          color: Colors.grey[400],
+                  ),
+                  if (property.images.length > 1)
+                    Positioned(
+                      bottom: 16,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        SizedBox(height: AppSpacing.md),
-                        Text(
-                          'Image non disponible',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
+                        child: Text(
+                          '${_currentImageIndex + 1}/${property.images.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  );
-                },
+                ],
               )
             : Container(
                 height: 300,
                 width: double.infinity,
-                color: Colors.grey[200],
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      DramusColors.darkPetroleum.withValues(alpha: 0.08),
+                      DramusColors.primaryTeal.withValues(alpha: 0.12),
+                    ],
+                  ),
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 80,
-                      color: Colors.grey[400],
+                      Icons.home_work_outlined,
+                      size: 72,
+                      color: DramusColors.primaryTeal.withValues(alpha: 0.5),
                     ),
                     SizedBox(height: AppSpacing.md),
                     Text(
-                      'Aucune image',
+                      'Aucune photo disponible',
                       style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
+                        color: DramusColors.secondaryText,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Le propriétaire n\'a pas ajouté de photos',
+                      style: TextStyle(
+                        color:
+                            DramusColors.secondaryText.withValues(alpha: 0.7),
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -388,48 +475,62 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
               scrollDirection: Axis.horizontal,
               itemCount: property.images.length,
               itemBuilder: (context, index) {
-                return Container(
-                  margin: EdgeInsets.only(right: AppSpacing.md),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(
-                      color: DramusColors.border,
+                final isSelected = _currentImageIndex == index;
+                return GestureDetector(
+                  onTap: () {
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  child: Container(
+                    margin: EdgeInsets.only(right: AppSpacing.md),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(
+                        color: isSelected
+                            ? DramusColors.primaryTeal
+                            : DramusColors.border,
+                        width: isSelected ? 2 : 1,
+                      ),
                     ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    child: Image.network(
-                      property.images[index],
-                      width: 100,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          width: 100,
-                          color: Colors.grey[200],
-                          child: Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: DramusColors.primaryTeal,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      child: Image.network(
+                        property.images[index],
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            width: 100,
+                            color: Colors.grey[200],
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: DramusColors.primaryTeal,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 100,
-                          color: Colors.grey[200],
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            color: Colors.grey[400],
-                            size: 32,
-                          ),
-                        );
-                      },
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 100,
+                            color: Colors.grey[200],
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.grey[400],
+                              size: 32,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 );
@@ -447,17 +548,29 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              _formatPrice(property.price),
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    color: DramusColors.primaryTeal,
-                    fontWeight: FontWeight.bold,
-                  ),
+            Expanded(
+              child: Text(
+                _formatPrice(property.price),
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      color: DramusColors.primaryTeal,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
             ),
-            Icon(
-              Icons.favorite_border,
-              color: DramusColors.notificationRed,
-              size: 28,
+            Consumer<FavoritesService>(
+              builder: (context, favService, _) {
+                final isFavorite = favService.isFavorite(property.id);
+                return IconButton(
+                  onPressed: () async {
+                    await favService.toggleFavorite(property.id);
+                  },
+                  icon: Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: DramusColors.notificationRed,
+                    size: 28,
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -545,132 +658,53 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     );
   }
 
-  void _showMessageDialog(BuildContext context, Property property) {
-    final messageController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+  Future<void> _navigateToMessages(
+      BuildContext context, Property property) async {
+    try {
+      final authController = context.read<AuthController>();
 
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.mail_outline, color: DramusColors.primaryTeal),
-              SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Envoyer un message',
-                  style: TextStyle(fontSize: 18),
-                ),
-              ),
-            ],
-          ),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Concernant: ${property.title}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: DramusColors.secondaryText,
-                        fontStyle: FontStyle.italic,
-                      ),
-                ),
-                SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: messageController,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    hintText: 'Écrivez votre message ici...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                      borderSide: BorderSide(color: DramusColors.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                      borderSide: BorderSide(
-                        color: DramusColors.primaryTeal,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Veuillez entrer un message';
-                    }
-                    if (value.trim().length < 10) {
-                      return 'Le message doit contenir au moins 10 caractères';
-                    }
-                    return null;
-                  },
-                ),
-              ],
+      // Vérifier que l'utilisateur est connecté
+      if (authController.user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Vous devez être connecté pour envoyer un message'),
+              backgroundColor: DramusColors.notificationRed,
             ),
+          );
+        }
+        return;
+      }
+
+      // Naviguer vers le MainAppScreen avec l'onglet Messages sélectionné
+      // L'écran de messages gérera la création/récupération de la conversation
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => MainAppScreen(
+            initialTabIndex: 3, // Index de l'onglet Messages
+            selectedConversationId: property.ownerId,
+            propertyId: property
+                .id, // Passer le propertyId pour lier le message à la propriété
+            ownerName: property.owner.fullName,
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                messageController.dispose();
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text(
-                'Annuler',
-                style: TextStyle(color: DramusColors.secondaryText),
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  // TODO: Implémenter l'envoi du message via l'API
-                  // Pour l'instant, on simule l'envoi
-                  Navigator.of(dialogContext).pop();
-                  
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Row(
-                          children: [
-                            Icon(Icons.check_circle, color: Colors.white),
-                            SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text('Message envoyé avec succès !'),
-                            ),
-                          ],
-                        ),
-                        backgroundColor: DramusColors.primaryTeal,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                        ),
-                      ),
-                    );
-                  }
-                  
-                  messageController.dispose();
-                }
-              },
-              icon: Icon(Icons.send),
-              label: Text('Envoyer'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: DramusColors.primaryTeal,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
+        ),
+        (route) => false, // Supprimer toutes les routes précédentes
+      );
+    } catch (e) {
+      debugPrint('Error navigating to messages: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'ouverture de la messagerie'),
+            backgroundColor: DramusColors.notificationRed,
+          ),
         );
-      },
-    );
+      }
+    }
   }
 
   Widget _buildContactSection(BuildContext context, Property property) {
+    final owner = property.owner;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,9 +730,23 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundImage: NetworkImage(
-                      'https://i.pravatar.cc/150?img=10',
-                    ),
+                    backgroundColor: DramusColors.primaryTeal,
+                    backgroundImage:
+                        owner.avatar != null && owner.avatar!.isNotEmpty
+                            ? NetworkImage(owner.avatar!)
+                            : null,
+                    child: owner.avatar == null || owner.avatar!.isEmpty
+                        ? Text(
+                            owner.initials,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: DramusColors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          )
+                        : null,
                   ),
                   SizedBox(width: AppSpacing.md),
                   Expanded(
@@ -706,19 +754,20 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Propriétaire',
+                          owner.fullName,
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                         ),
-                        Text(
-                          'ID: ${property.ownerId}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: DramusColors.secondaryText,
-                                  ),
-                        ),
+                        if (owner.phone.isNotEmpty)
+                          Text(
+                            owner.phone,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: DramusColors.secondaryText,
+                                    ),
+                          ),
                       ],
                     ),
                   ),
@@ -729,24 +778,13 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.phone),
-                      label: const Text('Appeler'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: DramusColors.primaryTeal,
-                        foregroundColor: DramusColors.white,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showMessageDialog(context, property),
+                      onPressed: () => _navigateToMessages(context, property),
                       icon: const Icon(Icons.mail),
-                      label: const Text('Message'),
+                      label: const Text('Envoyer un message'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: DramusColors.deepTeal,
                         foregroundColor: DramusColors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
                   ),

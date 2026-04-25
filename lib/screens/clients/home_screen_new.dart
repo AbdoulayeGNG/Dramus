@@ -7,6 +7,7 @@ import 'package:dramus/services/favorites_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/property_card.dart';
+import 'package:dramus/screens/clients/listings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,19 +18,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late List<Property> _filteredListings;
+  bool _isLoading = true;
   final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _filteredListings = []; // Initialiser la liste vide
+    _isLoading = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final listingService = context.read<ListingService>();
       // Charger les données seulement si elles ne sont pas déjà en cache
       if (!listingService.isLoaded) {
         await listingService.getAllListings();
       }
+      // Toujours charger les favoris pour s'assurer que les cœurs sont à jour
+      if (mounted) {
+        await context.read<FavoritesService>().loadFavorites();
+      }
       _applyFilters();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -220,7 +232,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: DramusColors.premiumYellow,
                   badge: Consumer<FavoritesService>(
                     builder: (context, favoritesService, _) {
-                      final favoritesCount = favoritesService.favoriteIds.length;
+                      final favoritesCount =
+                          favoritesService.favoriteIds.length;
                       return favoritesCount > 0
                           ? Text(
                               '$favoritesCount',
@@ -403,7 +416,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
           ),
           SizedBox(height: AppSpacing.lg),
-          if (_filteredListings.isEmpty)
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: CircularProgressIndicator(
+                  color: DramusColors.primaryTeal,
+                ),
+              ),
+            )
+          else if (_filteredListings.isEmpty)
             Center(
               child: Padding(
                 padding: AppSpacing.paddingXl,
@@ -445,7 +467,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: PropertyCard(
                             property: listing,
-                            onTap: () {},
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ListingDetailScreen(
+                                    listingId: listing.id,
+                                  ),
+                                ),
+                              );
+                            },
                             onFavoriteToggle: (isFavorite) {
                               // TODO: implement favorite toggle
                             },

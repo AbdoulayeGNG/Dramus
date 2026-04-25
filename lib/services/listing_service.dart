@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:dramus/models/property.dart';
 import 'package:dramus/models/user_model.dart';
 import 'package:dramus/core/api/api_client.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 
 class ListingService extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient.I;
@@ -71,8 +73,8 @@ class ListingService extends ChangeNotifier {
       debugPrint(
           'ListingService.getListingById: Response data type: ${response.data.runtimeType}');
 
-      // Check for wrapped response first (with 'data' key)
-      if (response.data is Map && response.data.containsKey('data')) {
+      if (response.data is Map<String, dynamic> &&
+          response.data.containsKey('data')) {
         debugPrint(
             'ListingService.getListingById: Response contains "data" key, using response.data["data"]');
         final data = response.data['data'];
@@ -116,21 +118,46 @@ class ListingService extends ChangeNotifier {
     }
   }
 
-  Future<bool> createListing(Property property) async {
+  Future<bool> createListing(Property property,
+      {List<XFile>? imageFiles}) async {
     try {
       debugPrint('ListingService.createListing: Starting to create listing');
-      debugPrint(
-          'ListingService.createListing: Property data: ${property.toJson()}');
 
-      final response =
-          await _apiClient.dio.post('/api/properties', data: property.toJson());
+      Response response;
+
+      if (imageFiles != null && imageFiles.isNotEmpty) {
+        debugPrint(
+            'ListingService.createListing: Creating multipart request with ${imageFiles.length} images');
+
+        final Map<String, dynamic> propertyData = property.toJson();
+        // Remove images field from JSON if we are sending files
+        propertyData.remove('images');
+
+        final formData = FormData.fromMap(propertyData);
+
+        // Add files
+        for (var file in imageFiles) {
+          final fileName = p.basename(file.path);
+          formData.files.add(MapEntry(
+            'images',
+            await MultipartFile.fromFile(file.path, filename: fileName),
+          ));
+        }
+
+        response = await _apiClient.dio.post('/api/properties', data: formData);
+      } else {
+        debugPrint(
+            'ListingService.createListing: Property data: ${property.toJson()}');
+        response = await _apiClient.dio
+            .post('/api/properties', data: property.toJson());
+      }
 
       debugPrint(
           'ListingService.createListing: Response status: ${response.statusCode}');
       debugPrint(
           'ListingService.createListing: Response data: ${response.data}');
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         // Invalider le cache pour forcer le rechargement des données
         invalidateCache();
         notifyListeners();

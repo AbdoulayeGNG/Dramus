@@ -5,6 +5,7 @@ import 'package:dramus/models/property.dart';
 import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
 
 class EditPropertyScreen extends StatefulWidget {
   final Property property;
@@ -19,6 +20,7 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
   String _propertyType = 'Maison';
   bool _isFormValid = false;
   bool _isLoading = false;
+  bool _isLocating = false;
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -65,6 +67,90 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
     _areaController.dispose();
     _imagesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          _showLocationServiceDialog();
+        }
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Permission de localisation refusée')),
+            );
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Les permissions de localisation sont définitivement refusées')),
+          );
+        }
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition();
+      setState(() {
+        _latitudeController.text = position.latitude.toString();
+        _longitudeController.text = position.longitude.toString();
+      });
+      _validateForm();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de localisation: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
+  }
+
+  void _showLocationServiceDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Localisation désactivée'),
+          content: const Text(
+              'La localisation est nécessaire pour récupérer vos coordonnées automatiquement. Souhaitez-vous l\'activer dans les paramètres ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('ANNULER',
+                  style: TextStyle(color: DramusColors.secondaryText)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await Geolocator.openLocationSettings();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DramusColors.primaryTeal,
+              ),
+              child: const Text('ACTIVER',
+                  style: TextStyle(color: DramusColors.white)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _validateForm() {
@@ -115,7 +201,7 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
               ? double.parse(_longitudeController.text)
               : 0.0,
         ),
-        ownerId: widget.property.ownerId,
+        owner: widget.property.owner, // Garder le même propriétaire
         status: widget.property.status,
         views: widget.property.views,
       );
@@ -342,6 +428,31 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
               ),
             ),
           ],
+        ),
+        SizedBox(height: AppSpacing.md),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isLocating ? null : _getCurrentLocation,
+            icon: _isLocating
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.my_location, size: 18),
+            label: Text(_isLocating
+                ? 'Récupération...'
+                : 'Utiliser ma position actuelle'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: DramusColors.primaryTeal,
+              side: const BorderSide(color: DramusColors.primaryTeal),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+            ),
+          ),
         ),
       ],
     );

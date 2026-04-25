@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/services/message_service.dart';
-import 'package:dramus/services/user_service.dart';
-import 'package:dramus/services/admin_service.dart';
-import 'package:dramus/services/favorites_service.dart';
 import 'package:dramus/theme.dart';
 import 'home_screen_new.dart';
 import 'messages_screen.dart';
@@ -13,29 +9,43 @@ import 'map.dart';
 import 'listings_screen.dart';
 
 class MainAppScreen extends StatefulWidget {
-  const MainAppScreen({super.key});
+  final int initialTabIndex;
+  final String? selectedConversationId;
+  final String? propertyId;
+  final String? ownerName;
+
+  const MainAppScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.selectedConversationId,
+    this.propertyId,
+    this.ownerName,
+  });
 
   @override
   State<MainAppScreen> createState() => _MainAppScreenState();
 }
 
 class _MainAppScreenState extends State<MainAppScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
+  // Conversation pré-sélectionnée consommée une seule fois
+  String? _pendingConversationId;
+  String? _pendingPropertyId;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialTabIndex;
+    _pendingConversationId = widget.selectedConversationId;
+    _pendingPropertyId = widget.propertyId;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => MessageService()),
-        ChangeNotifierProvider(create: (_) => UserService()),
-        ChangeNotifierProvider(create: (_) => AdminService()),
-        ChangeNotifierProvider(create: (_) => FavoritesService()),
-      ],
-      child: Scaffold(
-        body: _buildBody(),
-        bottomNavigationBar: _buildBottomNavBar(context),
-        //floatingActionButton: _buildFAB(context),
-      ),
+    return Scaffold(
+      body: _buildBody(),
+      bottomNavigationBar: _buildBottomNavBar(context),
+      //floatingActionButton: _buildFAB(context),
     );
   }
 
@@ -48,7 +58,20 @@ class _MainAppScreenState extends State<MainAppScreen> {
       case 2:
         return ClientsMapScreen();
       case 3:
-        return MessagesScreen();
+        return MessagesScreen(
+          preselectedConversationId: _pendingConversationId,
+          propertyId: _pendingPropertyId,
+          ownerName: widget.ownerName,
+          onConversationOpened: () {
+            // Consommer le pré-sélection une seule fois
+            if (_pendingConversationId != null) {
+              setState(() {
+                _pendingConversationId = null;
+                _pendingPropertyId = null;
+              });
+            }
+          },
+        );
       case 4:
         return ProfileScreen();
       default:
@@ -119,7 +142,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                           ? DramusColors.primaryTeal
                           : DramusColors.secondaryText,
                     ),
-                    if (unreadCount > 0)  
+                    if (unreadCount > 0)
                       Positioned(
                         right: 0,
                         top: 0,

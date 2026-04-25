@@ -63,6 +63,7 @@ class DramusColors {
   static const Color premiumYellow = Color(0xFFF2B449);
   static const Color rentYellow = Color(0xFFF3C27B);
   static const Color notificationRed = Color(0xFFE85E5B);
+  static const Color notificationGreen = Color(0xFF4CAF50);
 
   // Neutral Colors
   static const Color lightBackground = Color(0xFFF8F9FB);
@@ -97,88 +98,88 @@ class FontSizes {
 // ============================================================================
 
 ThemeData get lightTheme => ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.light(
-    primary: DramusColors.primaryTeal,
-    onPrimary: DramusColors.white,
-    primaryContainer: DramusColors.saleGreen,
-    onPrimaryContainer: DramusColors.darkPetroleum,
-    secondary: DramusColors.deepTeal,
-    onSecondary: DramusColors.white,
-    tertiary: DramusColors.premiumYellow,
-    onTertiary: DramusColors.darkText,
-    error: DramusColors.notificationRed,
-    onError: DramusColors.white,
-    errorContainer: Color(0xFFFEDEDB),
-    onErrorContainer: DramusColors.notificationRed,
-    surface: DramusColors.white,
-    onSurface: DramusColors.darkText,
-    surfaceContainerHighest: DramusColors.lightBackground,
-    onSurfaceVariant: DramusColors.secondaryText,
-    outline: DramusColors.border,
-    shadow: Color(0x1A000000),
-    inversePrimary: DramusColors.premiumYellow,
-  ),
-  brightness: Brightness.light,
-  scaffoldBackgroundColor: DramusColors.lightBackground,
-  appBarTheme: const AppBarTheme(
-    backgroundColor: DramusColors.darkPetroleum,
-    foregroundColor: DramusColors.white,
-    elevation: 0,
-    scrolledUnderElevation: 0,
-  ),
-  cardTheme: CardThemeData(
-    color: DramusColors.white,
-    elevation: 0,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      side: const BorderSide(color: DramusColors.border, width: 1),
-    ),
-  ),
-  textTheme: _buildTextTheme(),
-);
+      useMaterial3: true,
+      colorScheme: ColorScheme.light(
+        primary: DramusColors.primaryTeal,
+        onPrimary: DramusColors.white,
+        primaryContainer: DramusColors.saleGreen,
+        onPrimaryContainer: DramusColors.darkPetroleum,
+        secondary: DramusColors.deepTeal,
+        onSecondary: DramusColors.white,
+        tertiary: DramusColors.premiumYellow,
+        onTertiary: DramusColors.darkText,
+        error: DramusColors.notificationRed,
+        onError: DramusColors.white,
+        errorContainer: Color(0xFFFEDEDB),
+        onErrorContainer: DramusColors.notificationRed,
+        surface: DramusColors.white,
+        onSurface: DramusColors.darkText,
+        surfaceContainerHighest: DramusColors.lightBackground,
+        onSurfaceVariant: DramusColors.secondaryText,
+        outline: DramusColors.border,
+        shadow: Color(0x1A000000),
+        inversePrimary: DramusColors.premiumYellow,
+      ),
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: DramusColors.lightBackground,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: DramusColors.darkPetroleum,
+        foregroundColor: DramusColors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      cardTheme: CardThemeData(
+        color: DramusColors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: const BorderSide(color: DramusColors.border, width: 1),
+        ),
+      ),
+      textTheme: _buildTextTheme(),
+    );
 
 ThemeData get darkTheme => ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.dark(
-    primary: DramusColors.primaryTeal,
-    onPrimary: DramusColors.darkPetroleum,
-    primaryContainer: DramusColors.deepTeal,
-    onPrimaryContainer: DramusColors.primaryTeal,
-    secondary: DramusColors.saleGreen,
-    onSecondary: DramusColors.darkPetroleum,
-    tertiary: DramusColors.premiumYellow,
-    onTertiary: DramusColors.darkText,
-    error: DramusColors.notificationRed,
-    onError: DramusColors.darkText,
-    errorContainer: Color(0xFF5B2C2A),
-    onErrorContainer: Color(0xFFFEDEDB),
-    surface: Color(0xFF1A1A1A),
-    onSurface: Color(0xFFE8E8E8),
-    surfaceContainerHighest: Color(0xFF2A2A2A),
-    onSurfaceVariant: Color(0xFFB0B0B0),
-    outline: Color(0xFF606060),
-    shadow: Color(0xFF000000),
-    inversePrimary: DramusColors.premiumYellow,
-  ),
-  brightness: Brightness.dark,
-  scaffoldBackgroundColor: Color(0xFF121212),
-  appBarTheme: const AppBarTheme(
-    backgroundColor: DramusColors.darkPetroleum,
-    foregroundColor: DramusColors.white,
-    elevation: 0,
-    scrolledUnderElevation: 0,
-  ),
-  cardTheme: CardThemeData(
-    color: Color(0xFF1E1E1E),
-    elevation: 0,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      side: const BorderSide(color: Color(0xFF404040), width: 1),
-    ),
-  ),
-  textTheme: _buildTextTheme(),
-);
+      useMaterial3: true,
+      colorScheme: ColorScheme.dark(
+        primary: DramusColors.primaryTeal,
+        onPrimary: DramusColors.darkPetroleum,
+        primaryContainer: DramusColors.deepTeal,
+        onPrimaryContainer: DramusColors.primaryTeal,
+        secondary: DramusColors.saleGreen,
+        onSecondary: DramusColors.darkPetroleum,
+        tertiary: DramusColors.premiumYellow,
+        onTertiary: DramusColors.darkText,
+        error: DramusColors.notificationRed,
+        onError: DramusColors.darkText,
+        errorContainer: Color(0xFF5B2C2A),
+        onErrorContainer: Color(0xFFFEDEDB),
+        surface: Color(0xFF1A1A1A),
+        onSurface: Color(0xFFE8E8E8),
+        surfaceContainerHighest: Color(0xFF2A2A2A),
+        onSurfaceVariant: Color(0xFFB0B0B0),
+        outline: Color(0xFF606060),
+        shadow: Color(0xFF000000),
+        inversePrimary: DramusColors.premiumYellow,
+      ),
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: Color(0xFF121212),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: DramusColors.darkPetroleum,
+        foregroundColor: DramusColors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      cardTheme: CardThemeData(
+        color: Color(0xFF1E1E1E),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: const BorderSide(color: Color(0xFF404040), width: 1),
+        ),
+      ),
+      textTheme: _buildTextTheme(),
+    );
 
 TextTheme _buildTextTheme() {
   return TextTheme(
