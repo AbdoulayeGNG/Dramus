@@ -194,7 +194,7 @@ class ProfileScreen extends StatelessWidget {
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        side: const BorderSide(color: DramusColors.border),
+        side: BorderSide(color: Theme.of(context).dividerColor),
       ),
       child: Padding(
         padding: AppSpacing.paddingMd,
@@ -209,7 +209,7 @@ class ProfileScreen extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: DramusColors.secondaryText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                   ),
@@ -263,11 +263,12 @@ class ProfileScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (context) => Scaffold(
                   appBar: AppBar(
-                    title: const Text('Mes annonces',
-                        style: TextStyle(color: DramusColors.darkText)),
-                    backgroundColor: DramusColors.white,
-                    foregroundColor: DramusColors.darkText,
-                    elevation: 1,
+                    title: const Text('Mes annonces'),
+                    backgroundColor:
+                        Theme.of(context).appBarTheme.backgroundColor,
+                    foregroundColor:
+                        Theme.of(context).appBarTheme.foregroundColor,
+                    elevation: 0,
                   ),
                   body: const ListingsScreen(),
                 ),
@@ -336,7 +337,7 @@ class ProfileScreen extends StatelessWidget {
       child: Card(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: const BorderSide(color: DramusColors.border),
+          side: BorderSide(color: Theme.of(context).dividerColor),
         ),
         child: Padding(
           padding: AppSpacing.paddingMd,
@@ -355,7 +356,7 @@ class ProfileScreen extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
-                color: DramusColors.secondaryText,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),

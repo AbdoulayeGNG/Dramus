@@ -1,8 +1,9 @@
 class NotificationModel {
-  final int id;
+  final String id;
   final String title;
   final String body;
-  final bool isRead;
+  final bool read;
+  final String type;
   final DateTime createdAt;
   final Map<String, dynamic>? data;
 
@@ -10,42 +11,44 @@ class NotificationModel {
     required this.id,
     required this.title,
     required this.body,
-    required this.isRead,
+    required this.read,
+    required this.type,
     required this.createdAt,
     this.data,
   });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
-      id: json['id'] is int
-          ? json['id']
-          : int.tryParse(json['id'].toString()) ?? 0,
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
       title: json['title'] ?? '',
-      body: json['content'] ?? json['body'] ?? '',
-      isRead: json['is_read'] == 1 || json['is_read'] == true,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
+      body: json['body'] ?? json['content'] ?? '',
+      read: json['read'] == true,
+      type: json['type'] ?? 'message',
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
+          DateTime.now(),
       data: json['data'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      '_id': id,
       'title': title,
       'body': body,
-      'is_read': isRead,
-      'created_at': createdAt.toIso8601String(),
+      'read': read,
+      'type': type,
+      'createdAt': createdAt.toIso8601String(),
       'data': data,
     };
   }
 
   NotificationModel copyWith({
-    int? id,
+    String? id,
     String? title,
     String? body,
-    bool? isRead,
+    bool? read,
+    String? type,
     DateTime? createdAt,
     Map<String, dynamic>? data,
   }) {
@@ -53,7 +56,8 @@ class NotificationModel {
       id: id ?? this.id,
       title: title ?? this.title,
       body: body ?? this.body,
-      isRead: isRead ?? this.isRead,
+      read: read ?? this.read,
+      type: type ?? this.type,
       createdAt: createdAt ?? this.createdAt,
       data: data ?? this.data,
     );

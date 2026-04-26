@@ -59,6 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
               MaterialPageRoute(builder: (_) => const MainAppScreen()));
         } else {
           // Particuliers, agents et agences utilisent l'interface agence
+          print("Le role est : " + user.role.toLowerCase());
           Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const MainAppScreenAgence()));
         }
@@ -67,20 +68,62 @@ class _LoginScreenState extends State<LoginScreen> {
             const SnackBar(content: Text('Échec de la connexion')));
       }
     } catch (e) {
-      String errorMessage = 'Erreur de connexion';
+      String errorMessage = 'Une erreur est survenue lors de la connexion';
+
       if (e is DioException) {
-        if (e.response?.statusCode == 401) {
-          errorMessage = 'Téléphone ou mot de passe incorrect';
-        } else if (e.response?.statusCode == 400) {
-          errorMessage = 'Données invalides';
-        } else if (e.response?.statusCode == 500) {
-          errorMessage = 'Erreur serveur, réessayez plus tard';
-        } else {
-          errorMessage = 'Erreur réseau: ${e.message}';
+        switch (e.type) {
+          case DioExceptionType.connectionTimeout:
+          case DioExceptionType.sendTimeout:
+          case DioExceptionType.receiveTimeout:
+            errorMessage =
+                'Le délai d\'attente est dépassé. Vérifiez votre connexion internet.';
+            break;
+          case DioExceptionType.badResponse:
+            final statusCode = e.response?.statusCode;
+            if (statusCode == 401) {
+              errorMessage = 'Téléphone ou mot de passe incorrect';
+            } else if (statusCode == 400) {
+              errorMessage =
+                  'Les informations saisies sont invalides. Veuillez vérifier vos données.';
+            } else if (statusCode == 403) {
+              errorMessage = 'Accès refusé. Votre compte est peut-être bloqué.';
+            } else if (statusCode == 500) {
+              errorMessage = 'Erreur interne du serveur. Réessayez plus tard.';
+            } else {
+              errorMessage = 'Erreur serveur ($statusCode). Réessayez.';
+            }
+            break;
+          case DioExceptionType.connectionError:
+            errorMessage =
+                'Impossible de contacter le serveur. Vérifiez que vous avez accès à internet.';
+            break;
+          case DioExceptionType.cancel:
+            errorMessage = 'La requête a été annulée.';
+            break;
+          default:
+            errorMessage = 'Problème de réseau détecté. Veuillez réessayer.';
         }
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(errorMessage)));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(child: Text(errorMessage)),
+              ],
+            ),
+            backgroundColor: DramusColors.notificationRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -90,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       // Fond clair de l'application
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -160,6 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Card contenant le formulaire
               Card(
+                color: Theme.of(context).cardColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.lg),
                 ),
@@ -193,16 +237,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextFormField(
                               controller: _phoneCtl,
                               keyboardType: TextInputType.phone,
-                              decoration: InputDecoration(
-                                prefixIcon: const Icon(Icons.phone_outlined),
+                              decoration: const InputDecoration(
+                                prefixIcon: Icon(Icons.phone_outlined),
                                 labelText: 'Téléphone',
                                 hintText: 'ex: +221 77 123 45 67',
-                                filled: true,
-                                fillColor: Colors.white,
-                                border: OutlineInputBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.md),
-                                ),
                               ),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty)
@@ -221,12 +259,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               decoration: InputDecoration(
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 labelText: 'Mot de passe',
-                                filled: true,
-                                fillColor: Colors.white,
-                                border: OutlineInputBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.md),
-                                ),
                                 suffixIcon: IconButton(
                                   icon: Icon(_obscure
                                       ? Icons.visibility_off
@@ -261,7 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           value: true, onChanged: (_) {}),
                                     ),
                                     SizedBox(width: AppSpacing.xs),
-                                    Text('Se souvenir de moi',
+                                    Text('Se souvenir de moi  ',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall),
@@ -309,7 +341,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                             ? 'Connexion...'
                                             : 'Se connecter',
                                         style: TextStyle(
-                                            color: DramusColors.lightGray)),
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onPrimary)),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: DramusColors.primaryTeal,
                                       padding: EdgeInsets.symmetric(

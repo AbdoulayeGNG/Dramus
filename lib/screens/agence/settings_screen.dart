@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:dramus/theme.dart';
+import 'package:dramus/core/state/theme_controller.dart';
 import 'package:dramus/screens/agence/edit_profile_screen.dart';
 import 'package:dramus/screens/agence/help_center_screen.dart';
 import 'package:dramus/services/auth_service.dart';
@@ -12,9 +14,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _pushNotifications = true;
-  bool _emailNotifications = true;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -22,15 +21,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text(
           'Paramètres',
           style: TextStyle(
-            color: DramusColors.darkText,
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
-        elevation: 1,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        elevation: 0,
       ),
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -56,24 +54,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: 'Changer votre mot de passe',
               onTap: () => _showChangePasswordDialog(context),
             ),
-            _buildSectionHeader(context, 'Notifications'),
-            _buildSwitchItem(
-              context,
-              icon: Icons.notifications_none,
-              title: 'Notifications push',
-              value: _pushNotifications,
-              onChanged: (val) => setState(() => _pushNotifications = val),
+            _buildSectionHeader(context, 'Application'),
+            Consumer<ThemeController>(
+              builder: (context, themeController, child) {
+                return _buildSwitchItem(
+                  context,
+                  icon: Icons.dark_mode_outlined,
+                  title: 'Mode Sombre',
+                  subtitle: 'Basculer entre le thème clair et sombre',
+                  value: themeController.isDarkMode,
+                  onChanged: (val) => themeController.toggleDarkMode(val),
+                );
+              },
             ),
             _buildDivider(),
-            _buildSwitchItem(
-              context,
-              icon: Icons.mail_outline,
-              title: 'Emails',
-              subtitle: 'Recevoir des mises à jour par email',
-              value: _emailNotifications,
-              onChanged: (val) => setState(() => _emailNotifications = val),
-            ),
-            _buildSectionHeader(context, 'Application'),
             _buildSettingsItem(
               context,
               icon: Icons.language,
@@ -81,23 +75,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: Text(
                 'Français',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: DramusColors.secondaryText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
-              onTap: () {},
-            ),
-            _buildSectionHeader(context, 'À propos'),
-            _buildSettingsItem(
-              context,
-              icon: Icons.description_outlined,
-              title: 'Conditions générales',
-              onTap: () {},
-            ),
-            _buildDivider(),
-            _buildSettingsItem(
-              context,
-              icon: Icons.privacy_tip_outlined,
-              title: 'Politique de confidentialité',
               onTap: () {},
             ),
             _buildDivider(),
@@ -142,7 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text(
             title.toUpperCase(),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: DramusColors.secondaryText,
+                  color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
                 ),
@@ -161,7 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: DramusColors.white,
+      color: Theme.of(context).cardColor,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -186,7 +166,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Text(
                         subtitle,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: DramusColors.secondaryText,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                       ),
                     ],
@@ -199,7 +181,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Icon(
                   Icons.arrow_forward_ios,
                   size: 16,
-                  color: DramusColors.secondaryText.withValues(alpha: 0.5),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant
+                      .withValues(alpha: 0.5),
                 ),
             ],
           ),
@@ -217,7 +202,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<bool> onChanged,
   }) {
     return Material(
-      color: DramusColors.white,
+      color: Theme.of(context).cardColor,
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
@@ -241,7 +226,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: DramusColors.secondaryText,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],
@@ -281,7 +267,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'Modifier le mot de passe',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: DramusColors.darkPetroleum,
                 ),
           ),
           content: SingleChildScrollView(
@@ -293,7 +278,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     'Entrez votre mot de passe actuel et votre nouveau mot de passe.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: DramusColors.secondaryText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                   SizedBox(height: AppSpacing.lg),
@@ -380,9 +365,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: isLoading ? null : () => Navigator.pop(context),
-              child: const Text(
+              child: Text(
                 'Annuler',
-                style: TextStyle(color: DramusColors.secondaryText),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
             ElevatedButton(

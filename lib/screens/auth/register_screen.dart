@@ -188,9 +188,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: DramusColors.darkPetroleum,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         title: const Text('Créer un compte'),
         elevation: 0,
       ),
@@ -201,6 +202,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             children: [
               Card(
+                color: Theme.of(context).cardColor,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadius.lg)),
                 child: Padding(
@@ -398,9 +400,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           const Divider(height: 32),
                           const Text('Informations Administrateur',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: DramusColors.darkPetroleum)),
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                           SizedBox(height: AppSpacing.md),
                           Row(
                             children: [
@@ -489,9 +489,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               child: _loading
                                   ? const CircularProgressIndicator(
                                       color: Colors.white)
-                                  : const Text('S\'inscrire',
+                                  : Text('S\'inscrire',
                                       style: TextStyle(
-                                          color: DramusColors.lightGray))),
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onPrimary))),
                         ),
                       ],
                     ),

@@ -68,14 +68,14 @@ class _ConversationTileState extends State<ConversationTile>
             curve: Curves.easeInOut,
             decoration: BoxDecoration(
               color: widget.isSelected
-                  ? DramusColors.primaryTeal.withValues(alpha: 0.1)
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
                   : _isHovered
-                      ? DramusColors.lightGray.withValues(alpha: 0.5)
-                      : DramusColors.white,
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                      : Theme.of(context).colorScheme.surface,
               border: Border(
                 left: BorderSide(
                   color: widget.isSelected
-                      ? DramusColors.primaryTeal
+                      ? Theme.of(context).colorScheme.primary
                       : Colors.transparent,
                   width: 4,
                 ),
@@ -122,7 +122,10 @@ class _ConversationTileState extends State<ConversationTile>
             boxShadow: widget.isSelected || _isHovered
                 ? [
                     BoxShadow(
-                      color: DramusColors.primaryTeal.withValues(alpha: 0.3),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.3),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -140,20 +143,18 @@ class _ConversationTileState extends State<ConversationTile>
               width: 18,
               height: 18,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    DramusColors.notificationRed,
-                    Color(0xFFFF6B6B),
-                  ],
-                ),
+                color: Theme.of(context).colorScheme.error,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: DramusColors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   width: 2.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: DramusColors.notificationRed.withValues(alpha: 0.5),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .error
+                        .withValues(alpha: 0.5),
                     blurRadius: 4,
                     spreadRadius: 1,
                   ),
@@ -163,8 +164,8 @@ class _ConversationTileState extends State<ConversationTile>
                 child: Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
-                    color: DramusColors.white,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.onError,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -178,7 +179,7 @@ class _ConversationTileState extends State<ConversationTile>
   Widget _buildImageAvatar() {
     return CircleAvatar(
       radius: 28,
-      backgroundColor: DramusColors.lightGray,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: ClipOval(
         child: CachedNetworkImage(
           imageUrl: widget.conversation.user2Avatar!,
@@ -187,19 +188,12 @@ class _ConversationTileState extends State<ConversationTile>
           fit: BoxFit.cover,
           placeholder: (context, url) => Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  DramusColors.primaryTeal.withValues(alpha: 0.3),
-                  DramusColors.deepTeal.withValues(alpha: 0.3),
-                ],
-              ),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
-            child: const Center(
+            child: Center(
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: DramusColors.primaryTeal,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ),
@@ -228,7 +222,7 @@ class _ConversationTileState extends State<ConversationTile>
         child: Text(
           initials,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: DramusColors.white,
+                color: Theme.of(context).colorScheme.onPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
               ),
@@ -255,8 +249,12 @@ class _ConversationTileState extends State<ConversationTile>
                             ? FontWeight.bold
                             : FontWeight.w600,
                         color: widget.hasUnread
-                            ? DramusColors.darkText
-                            : DramusColors.darkText.withValues(alpha: 0.9),
+                            ? Theme.of(context).textTheme.titleMedium?.color
+                            : Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.color
+                                ?.withValues(alpha: 0.85),
                       ),
                 ),
               ),
@@ -268,7 +266,10 @@ class _ConversationTileState extends State<ConversationTile>
                   child: Icon(
                     Icons.verified,
                     size: 16,
-                    color: DramusColors.primaryTeal.withValues(alpha: 0.7),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.7),
                   ),
                 ),
             ],
@@ -286,7 +287,7 @@ class _ConversationTileState extends State<ConversationTile>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: widget.hasUnread
-            ? DramusColors.primaryTeal.withValues(alpha: 0.15)
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
       ),
@@ -294,8 +295,8 @@ class _ConversationTileState extends State<ConversationTile>
         _formatTime(widget.conversation.updatedAt),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: widget.hasUnread
-                  ? DramusColors.primaryTeal
-                  : DramusColors.secondaryText,
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: widget.hasUnread ? FontWeight.w700 : FontWeight.w500,
               fontSize: 11,
             ),
@@ -319,8 +320,8 @@ class _ConversationTileState extends State<ConversationTile>
                 : Icons.done_rounded,
             size: 14,
             color: widget.conversation.lastMessage.read
-                ? DramusColors.primaryTeal
-                : DramusColors.secondaryText,
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 4),
         ],
@@ -345,8 +346,11 @@ class _ConversationTileState extends State<ConversationTile>
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: widget.hasUnread
-                      ? DramusColors.darkText.withValues(alpha: 0.8)
-                      : DramusColors.secondaryText,
+                      ? Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.8)
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight:
                       widget.hasUnread ? FontWeight.w500 : FontWeight.w400,
                   height: 1.3,
@@ -380,7 +384,7 @@ class _ConversationTileState extends State<ConversationTile>
     final gradients = [
       [DramusColors.primaryTeal, DramusColors.deepTeal],
       [DramusColors.saleGreen, DramusColors.primaryTeal],
-      [DramusColors.premiumYellow, DramusColors.rentYellow],
+      [DramusColors.premiumYellow, const Color(0xFFFFA000)],
       [const Color(0xFF667EEA), const Color(0xFF764BA2)],
       [const Color(0xFFF093FB), const Color(0xFFF5576C)],
       [const Color(0xFF4FACFE), const Color(0xFF00F2FE)],

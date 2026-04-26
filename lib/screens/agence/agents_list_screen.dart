@@ -63,12 +63,12 @@ class _AgentsListScreenState extends State<AgentsListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Mes Agents',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
       ),
       body: Consumer<AgentService>(
@@ -83,12 +83,13 @@ class _AgentsListScreenState extends State<AgentsListScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.group_outlined,
-                      size: 80, color: DramusColors.lightGray),
+                      size: 80, color: Theme.of(context).dividerColor),
                   const SizedBox(height: 16),
                   Text(
                     'Aucun agent trouvé',
                     style: TextStyle(
-                        color: DramusColors.secondaryText, fontSize: 18),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 18),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
@@ -148,8 +149,10 @@ class _AgentsListScreenState extends State<AgentsListScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(agent.email,
-                              style:
-                                  TextStyle(color: DramusColors.secondaryText)),
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant)),
                           const SizedBox(height: 4),
                           Wrap(
                             spacing: 4,

@@ -88,11 +88,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Nouveau mot de passe'),
-        backgroundColor: DramusColors.darkPetroleum,
-        foregroundColor: DramusColors.white,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -106,7 +106,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   'Dernière étape',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: DramusColors.darkPetroleum,
                       ),
                 ),
                 SizedBox(height: AppSpacing.md),
@@ -120,12 +119,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 TextFormField(
                   controller: _tokenController,
                   keyboardType: TextInputType.text,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Code de réinitialisation',
-                    prefixIcon: const Icon(Icons.pin),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
+                    prefixIcon: Icon(Icons.pin),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -152,9 +148,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           _obscurePassword = !_obscurePassword;
                         });
                       },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                   ),
                   validator: (value) {
@@ -186,9 +179,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         });
                       },
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -205,7 +195,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   onPressed: _isLoading ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: DramusColors.primaryTeal,
-                    foregroundColor: DramusColors.white,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadius.md),

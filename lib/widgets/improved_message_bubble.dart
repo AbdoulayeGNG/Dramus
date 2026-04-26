@@ -40,7 +40,7 @@ class ImprovedMessageBubble extends StatelessWidget {
         children: [
           // Avatar pour les messages reçus (à gauche)
           if (!isCurrentUser && showAvatar && isLastInGroup)
-            _buildAvatar()
+            _buildAvatar(context)
           else if (!isCurrentUser && showAvatar)
             const SizedBox(width: 32),
 
@@ -64,7 +64,7 @@ class ImprovedMessageBubble extends StatelessWidget {
                       child: Text(
                         senderName!,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: DramusColors.primaryTeal,
+                              color: Theme.of(context).colorScheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
@@ -87,13 +87,16 @@ class ImprovedMessageBubble extends StatelessWidget {
                               ],
                             )
                           : null,
-                      color: isCurrentUser ? null : DramusColors.white,
+                      color: isCurrentUser ? null : Theme.of(context).cardColor,
                       borderRadius: _getBorderRadius(),
                       boxShadow: [
                         BoxShadow(
                           color: isCurrentUser
-                              ? DramusColors.primaryTeal.withValues(alpha: 0.3)
-                              : DramusColors.darkText.withValues(alpha: 0.08),
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.3)
+                              : Colors.black.withValues(alpha: 0.08),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -108,8 +111,11 @@ class ImprovedMessageBubble extends StatelessWidget {
                           style:
                               Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: isCurrentUser
-                                        ? DramusColors.white
-                                        : DramusColors.darkText,
+                                        ? Colors.white
+                                        : Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.color,
                                     height: 1.4,
                                   ),
                         ),
@@ -127,22 +133,24 @@ class ImprovedMessageBubble extends StatelessWidget {
                                   .labelSmall
                                   ?.copyWith(
                                     color: isCurrentUser
-                                        ? DramusColors.white
-                                            .withValues(alpha: 0.8)
-                                        : DramusColors.secondaryText,
+                                        ? Colors.white.withValues(alpha: 0.8)
+                                        : Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.color,
                                     fontSize: 11,
                                   ),
                             ),
                             if (isCurrentUser) ...[
                               const SizedBox(width: 4),
                               Icon(
-                                message.read
-                                    ? Icons.done_all_rounded
-                                    : Icons.done_rounded,
+                                message.status == 'sent'
+                                    ? Icons.done_rounded
+                                    : Icons.done_all_rounded,
                                 size: 16,
-                                color: message.read
-                                    ? DramusColors.white
-                                    : DramusColors.white.withValues(alpha: 0.7),
+                                color: message.status == 'read'
+                                    ? DramusColors.statusBlue
+                                    : Colors.white.withValues(alpha: 0.6),
                               ),
                             ],
                           ],
@@ -167,7 +175,7 @@ class ImprovedMessageBubble extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar() {
+  Widget _buildAvatar(BuildContext context) {
     final initials = _getInitials(senderName ?? 'U');
     return Container(
       width: 32,
@@ -183,8 +191,8 @@ class ImprovedMessageBubble extends StatelessWidget {
       child: Center(
         child: Text(
           initials,
-          style: const TextStyle(
-            color: DramusColors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 12,
           ),
@@ -254,7 +262,7 @@ class ImprovedMessageBubble extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: DramusColors.white,
+          color: Theme.of(context).scaffoldBackgroundColor,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
@@ -269,7 +277,7 @@ class ImprovedMessageBubble extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: DramusColors.mediumGray,
+                  color: Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -314,25 +322,24 @@ class DateSeparator extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
         children: [
-          const Expanded(child: Divider(color: DramusColors.border)),
+          const Expanded(child: Divider()),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: DramusColors.lightGray.withValues(alpha: 0.5),
+                color: Theme.of(context).colorScheme.surfaceVariant,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 _formatDate(date),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: DramusColors.secondaryText,
                       fontWeight: FontWeight.w600,
                     ),
               ),
             ),
           ),
-          const Expanded(child: Divider(color: DramusColors.border)),
+          const Expanded(child: Divider()),
         ],
       ),
     );

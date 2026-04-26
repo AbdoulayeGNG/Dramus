@@ -83,29 +83,25 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Mes Favoris',
-          style: TextStyle(
-            color: DramusColors.darkPetroleum,
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
         ),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkPetroleum,
         elevation: 0,
         centerTitle: true,
       ),
       body: _isLoadingProperties
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(
-                color: DramusColors.primaryTeal,
+                color: Theme.of(context).colorScheme.primary,
               ),
             )
           : RefreshIndicator(
               onRefresh: _loadFavorites,
-              color: DramusColors.primaryTeal,
+              color: Theme.of(context).colorScheme.primary,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
@@ -182,13 +178,16 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: DramusColors.primaryTeal.withValues(alpha: 0.1),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.favorite_border,
                 size: 64,
-                color: DramusColors.primaryTeal,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             SizedBox(height: AppSpacing.lg),
@@ -196,7 +195,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               'Aucun favori pour le moment',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: DramusColors.darkPetroleum,
                   ),
             ),
             SizedBox(height: AppSpacing.sm),
@@ -204,7 +202,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               'Explorez les annonces et ajoutez-les à vos favoris pour les retrouver ici.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: DramusColors.secondaryText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
           ],

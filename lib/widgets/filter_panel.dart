@@ -21,7 +21,7 @@ class _FilterPanelState extends State<FilterPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: DramusColors.white,
+      color: Theme.of(context).cardColor,
       padding: AppSpacing.paddingMd,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,19 +35,9 @@ class _FilterPanelState extends State<FilterPanel> {
           SizedBox(height: AppSpacing.lg),
           DropdownButtonFormField<String>(
             value: _selectedType,
-            decoration: InputDecoration(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                borderSide: const BorderSide(color: DramusColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                borderSide: const BorderSide(color: DramusColors.border),
-              ),
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               filled: true,
-              fillColor: DramusColors.lightBackground,
             ),
             dropdownColor: Theme.of(context).colorScheme.surface,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -93,8 +83,8 @@ class _FilterPanelState extends State<FilterPanel> {
               });
               widget.onFilterChanged(_selectedType, _minPrice, _maxPrice);
             },
-            activeColor: DramusColors.primaryTeal,
-            inactiveColor: DramusColors.border,
+            activeColor: Theme.of(context).colorScheme.primary,
+            inactiveColor: Theme.of(context).dividerColor,
           ),
         ],
       ),

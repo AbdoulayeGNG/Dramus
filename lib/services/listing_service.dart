@@ -14,6 +14,8 @@ class ListingService extends ChangeNotifier {
   bool _isLoading = false;
   bool _isLoaded = false;
   DateTime? _lastFetchTime;
+  int _sessionId = 0; // Pour éviter les race conditions lors de la déconnexion
+  String? _cachedOwnerId; // Pour identifier à qui appartient ce cache
 
   // Getters pour accéder aux données en cache
   List<Property> get cachedListings => _listings;
@@ -50,9 +52,19 @@ class ListingService extends ChangeNotifier {
 
   // Invalider le cache (utile après création/modification/suppression)
   void invalidateCache() {
+    _listings = [];
     _isLoaded = false;
     _lastFetchTime = null;
-    debugPrint('Cache invalidated');
+    debugPrint('ListingService: Cache invalidated and cleared');
+    notifyListeners();
+  }
+
+  // Réinitialisation complète pour déconnexion
+  void reset() {
+    _sessionId++; // Incrémenter pour ignorer les requêtes en cours
+    invalidateCache();
+    _cachedOwnerId = null;
+    _isLoading = false;
   }
 
   Future<Property?> getListingById(String id) async {
@@ -328,12 +340,29 @@ class ListingService extends ChangeNotifier {
         forceRefresh: forceRefresh);
   }
 
-  // Méthode privée pour factoriser la logique de récupération
   Future<List<Property>> _fetchListings(String endpoint,
       {bool forceRefresh = false}) async {
+    // Identifier l'entité propriétaire via l'endpoint (user ID ou agency ID)
+    String? currentTargetId;
+    if (endpoint.contains('/user/')) {
+      currentTargetId = endpoint.split('/user/').last;
+    } else if (endpoint.contains('/agency/')) {
+      currentTargetId = endpoint.split('/agency/').last;
+    }
+
+    // Si la cible change, on force le rafraîchissement
+    if (currentTargetId != null && _cachedOwnerId != currentTargetId) {
+      debugPrint(
+          'ListingService: Target changed from $_cachedOwnerId to $currentTargetId. Forcing refresh.');
+      forceRefresh = true;
+      _cachedOwnerId = currentTargetId;
+      _isLoaded = false;
+    }
+
     // Si les données sont déjà chargées et le cache est valide, retourner les données en cache
     if (_isLoaded && !forceRefresh && _isCacheValid()) {
-      debugPrint('Returning cached listings (${_listings.length} items)');
+      debugPrint(
+          'Returning cached listings for $_cachedOwnerId (${_listings.length} items)');
       return _listings;
     }
 
@@ -350,9 +379,19 @@ class ListingService extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    final capturedSessionId = _sessionId; // Capturer la session actuelle
+
     try {
       debugPrint('Fetching listings from API: $endpoint');
       final response = await _apiClient.dio.get(endpoint);
+
+      // Vérifier si la session est toujours la même après l'async
+      if (capturedSessionId != _sessionId) {
+        debugPrint(
+            'Aborting listings update: session changed (logout occurred)');
+        return _listings;
+      }
+
       final body = response.data as Map<String, dynamic>;
       final data = body['data'] as List<dynamic>;
 
@@ -366,8 +405,10 @@ class ListingService extends ChangeNotifier {
       debugPrint('Error fetching listings from $endpoint: $e');
       return _listings; // Retourner les données en cache même en cas d'erreur
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (capturedSessionId == _sessionId) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

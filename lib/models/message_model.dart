@@ -7,6 +7,7 @@ class Message {
   final String? senderName;
   final String? receiverName;
   final bool read;
+  final String status; // 'sent', 'delivered', 'read'
   final DateTime createdAt;
 
   const Message({
@@ -18,6 +19,7 @@ class Message {
     this.senderName,
     this.receiverName,
     required this.read,
+    this.status = 'sent',
     required this.createdAt,
   });
 
@@ -52,6 +54,8 @@ class Message {
       senderName: extractName(json['senderId']),
       receiverName: extractName(json['receiverId']),
       read: (json['read'] as bool?) ?? false,
+      status: json['status']?.toString() ??
+          ((json['read'] as bool?) == true ? 'read' : 'sent'),
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.now(),
     );
@@ -64,6 +68,7 @@ class Message {
         'content': content,
         'propertyId': propertyId,
         'read': read,
+        'status': status,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -74,6 +79,7 @@ class Message {
     String? content,
     String? propertyId,
     bool? read,
+    String? status,
     DateTime? createdAt,
   }) {
     return Message(
@@ -83,6 +89,7 @@ class Message {
       content: content ?? this.content,
       propertyId: propertyId ?? this.propertyId,
       read: read ?? this.read,
+      status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
     );
   }

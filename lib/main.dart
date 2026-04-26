@@ -8,9 +8,11 @@ import 'package:dramus/services/message_service.dart';
 import 'package:dramus/services/notification_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/services/agent_service.dart';
+import 'package:dramus/services/socket_service.dart';
 import 'package:dramus/screens/auth/login_screen.dart';
 import 'package:dramus/features/onboarding/onboarding_screen.dart';
 import 'package:dramus/core/services/onboarding_service.dart';
+import 'package:dramus/core/state/theme_controller.dart';
 import 'package:dramus/theme.dart';
 
 import 'package:intl/date_symbol_data_local.dart';
@@ -38,23 +40,35 @@ class DramusApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserService()),
+        ChangeNotifierProvider(
+            create: (_) => NotificationService()..initialize()),
         ChangeNotifierProvider(create: (_) => AuthController()),
         ChangeNotifierProvider(create: (_) => ListingService()),
         ChangeNotifierProvider(create: (_) => FavoritesService()),
-        ChangeNotifierProvider(create: (_) => MessageService()),
-        ChangeNotifierProvider(
-            create: (_) => NotificationService()..initialize()),
+        ChangeNotifierProxyProvider<SocketService, MessageService>(
+          create: (_) => MessageService(),
+          update: (_, socketService, messageService) => messageService!
+            ..setSocketService(socketService)
+            ..setupSocketListeners(),
+        ),
+        ChangeNotifierProvider(create: (_) => ThemeController()),
         ChangeNotifierProvider(create: (_) => AgentService()),
+        ChangeNotifierProvider(create: (_) => SocketService()),
         // MessageService disponible globalement pour toutes les routes
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'DRAMUS - Immobilier Premium',
-        theme: lightTheme,
-        darkTheme: darkTheme,
-        home: OnboardingService().hasSeenOnboarding()
-            ? const LoginScreen()
-            : const OnboardingScreen(),
+      child: Consumer<ThemeController>(
+        builder: (context, themeController, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'DRAMUS - Immobilier Premium',
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: themeController.themeMode,
+            home: OnboardingService().hasSeenOnboarding()
+                ? const LoginScreen()
+                : const OnboardingScreen(),
+          );
+        },
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dramus/models/message_model.dart';
 import 'package:dramus/services/message_service.dart';
+import 'package:dramus/screens/notifications_screen.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/conversation_tile.dart';
@@ -21,6 +22,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   String? _selectedConversationId;
   bool _isInitialized = false;
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _messageController = TextEditingController();
   String _searchQuery = '';
   bool _isSending = false;
 
@@ -35,6 +37,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
@@ -75,7 +78,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       builder: (context, messageService, _) {
         if (!_isInitialized) {
           return Scaffold(
-            backgroundColor: DramusColors.lightBackground,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -131,28 +134,34 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     // Vue de la liste des conversations avec AppBar amélioré
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         title: Text(
           'Messages',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: DramusColors.darkText,
                 fontWeight: FontWeight.bold,
+                color: Theme.of(context).appBarTheme.foregroundColor,
               ),
         ),
         elevation: 1,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: DramusColors.darkText),
-            onPressed: () => messageService.loadConversations(),
+            icon: Icon(Icons.refresh,
+                color: Theme.of(context).appBarTheme.foregroundColor),
+            onPressed: () {
+              messageService.loadConversations();
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_outlined,
-                color: DramusColors.darkText),
+            icon: Icon(Icons.notifications_outlined,
+                color: Theme.of(context).appBarTheme.foregroundColor),
             onPressed: () {
-              // TODO: Naviguer vers l'écran de notifications
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (context) => const NotificationsScreen()),
+              );
             },
           ),
           // Badge de compteur de messages non lus
@@ -189,7 +198,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         children: [
           // Barre de recherche
           Container(
-            color: DramusColors.white,
+            color: Theme.of(context).colorScheme.surface,
             padding: AppSpacing.paddingMd,
             child: TextField(
               controller: _searchController,
@@ -202,13 +211,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 hintText: 'Rechercher une conversation...',
                 prefixIcon: const Icon(
                   Icons.search,
-                  color: DramusColors.secondaryText,
                 ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(
                           Icons.clear,
-                          color: DramusColors.secondaryText,
                         ),
                         onPressed: () {
                           _searchController.clear();
@@ -220,14 +227,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.xl),
-                  borderSide: const BorderSide(
-                    color: DramusColors.border,
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.xl),
-                  borderSide: const BorderSide(
-                    color: DramusColors.border,
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
@@ -239,7 +246,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 ),
                 contentPadding: AppSpacing.horizontalMd + AppSpacing.verticalSm,
                 filled: true,
-                fillColor: DramusColors.lightBackground,
+                fillColor:
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
               ),
             ),
           ),
@@ -262,7 +270,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         SizedBox(
           width: 380,
           child: Container(
-            color: DramusColors.white,
+            color: Theme.of(context).colorScheme.surface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -370,7 +378,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       contentPadding:
                           AppSpacing.horizontalMd + AppSpacing.verticalSm,
                       filled: true,
-                      fillColor: DramusColors.lightBackground,
+                      fillColor: Theme.of(context).colorScheme.surfaceVariant,
                       isDense: true,
                     ),
                   ),
@@ -483,20 +491,19 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final messages = messageService.getMessagesForConversation(conv.id);
     debugPrint(
         'AgenceChatView (DEBUG): id=${conv.id}, msg_count=${messages.length}');
-    final messageInputController = TextEditingController();
     final scrollController = ScrollController();
     final authController = Provider.of<AuthController>(context, listen: false);
     final currentUserId = authController.user?.id ?? '';
 
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         leading: MediaQuery.of(context).size.width < 900
             ? IconButton(
-                icon:
-                    const Icon(Icons.arrow_back, color: DramusColors.darkText),
+                icon: Icon(Icons.arrow_back,
+                    color: Theme.of(context).appBarTheme.foregroundColor),
                 onPressed: () {
                   setState(() => _selectedConversationId = null);
                 },
@@ -509,7 +516,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
             conv.user2Avatar != null && conv.user2Avatar!.isNotEmpty
                 ? CircleAvatar(
                     radius: 20,
-                    backgroundColor: DramusColors.lightGray,
+                    backgroundColor: Theme.of(context).dividerColor,
                     child: ClipOval(
                       child: CachedNetworkImage(
                         imageUrl: conv.user2Avatar!,
@@ -539,7 +546,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(
-                                  color: DramusColors.white,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
@@ -553,7 +560,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     child: Text(
                       _getInitials(conv.user2Name),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: DramusColors.white,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -569,7 +576,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         ? conv.user2Name
                         : 'Client inconnu',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: DramusColors.darkText,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -593,7 +599,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             Icon(
                               Icons.chat_bubble_outline,
                               size: 64,
-                              color: DramusColors.secondaryText
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant
                                   .withValues(alpha: 0.5),
                             ),
                             SizedBox(height: AppSpacing.md),
@@ -614,7 +622,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                   .textTheme
                                   .bodySmall
                                   ?.copyWith(
-                                    color: DramusColors.secondaryText,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                             ),
                           ],
@@ -711,14 +721,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
           // Zone de saisie avec indicateur de chargement
           Container(
             decoration: BoxDecoration(
-              color: DramusColors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: DramusColors.darkText.withValues(alpha: 0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
+              color: Theme.of(context).colorScheme.surface,
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).dividerColor,
+                  width: 0.5,
                 ),
-              ],
+              ),
             ),
             padding: AppSpacing.paddingMd,
             child: SafeArea(
@@ -726,7 +735,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 children: [
                   Expanded(
                     child: TextField(
-                      controller: messageInputController,
+                      controller: _messageController,
                       maxLines: null,
                       enabled: !_isSending,
                       textInputAction: TextInputAction.newline,
@@ -736,14 +745,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             : 'Écrivez votre message...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.xl),
-                          borderSide: const BorderSide(
-                            color: DramusColors.border,
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.xl),
-                          borderSide: const BorderSide(
-                            color: DramusColors.border,
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
                           ),
                         ),
                         disabledBorder: OutlineInputBorder(
@@ -763,8 +772,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             AppSpacing.horizontalMd + AppSpacing.verticalMd,
                         filled: true,
                         fillColor: _isSending
-                            ? DramusColors.lightGray
-                            : DramusColors.lightBackground,
+                            ? Theme.of(context).disabledColor
+                            : Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
                       ),
                     ),
                   ),
@@ -778,12 +789,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       onTap: _isSending
                           ? null
                           : () async {
-                              if (messageInputController.text
-                                  .trim()
-                                  .isNotEmpty) {
-                                final content =
-                                    messageInputController.text.trim();
-                                messageInputController.clear();
+                              if (_messageController.text.trim().isNotEmpty) {
+                                final content = _messageController.text.trim();
+                                _messageController.clear();
 
                                 setState(() {
                                   _isSending = true;
@@ -869,12 +877,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                 height: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: DramusColors.white,
+                                  color: Colors.white,
                                 ),
                               )
                             : const Icon(
                                 Icons.send_rounded,
-                                color: DramusColors.white,
+                                color: Colors.white,
                               ),
                       ),
                     ),
@@ -890,62 +898,104 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Future<void> _deleteMessage(
       MessageService messageService, String messageId) async {
-    final confirmed = await showDialog<bool>(
+    bool isDeleting = false;
+
+    final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        title: const Text('Supprimer le message'),
-        content: const Text('Voulez-vous vraiment supprimer ce message ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Annuler',
-              style: TextStyle(color: DramusColors.secondaryText),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Supprimer',
-              style: TextStyle(color: DramusColors.notificationRed),
-            ),
-          ),
-        ],
+            title: const Text('Supprimer le message'),
+            content: const Text('Voulez-vous vraiment supprimer ce message ?'),
+            actions: [
+              TextButton(
+                onPressed: isDeleting ? null : () => Navigator.pop(context),
+                child: Text(
+                  'Annuler',
+                  style: TextStyle(
+                    color: isDeleting
+                        ? Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant
+                            .withValues(alpha: 0.5)
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: isDeleting
+                    ? null
+                    : () async {
+                        setDialogState(() => isDeleting = true);
+                        final success =
+                            await messageService.deleteMessage(messageId);
+                        if (context.mounted) {
+                          Navigator.pop(context, success);
+                        }
+                      },
+                child: isDeleting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: DramusColors.notificationRed,
+                        ),
+                      )
+                    : const Text(
+                        'Supprimer',
+                        style: TextStyle(color: DramusColors.notificationRed),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
 
-    if (confirmed == true) {
-      final success = await messageService.deleteMessage(messageId);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  success ? Icons.check_circle : Icons.error_outline,
-                  color: DramusColors.white,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  success
-                      ? 'Message supprimé'
-                      : 'Erreur lors de la suppression',
-                ),
-              ],
-            ),
-            backgroundColor:
-                success ? DramusColors.saleGreen : DramusColors.notificationRed,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(
+                Icons.check_circle,
+                color: Colors.white,
+              ),
+              SizedBox(width: 8),
+              Text('Message supprimé'),
+            ],
           ),
-        );
-      }
+          backgroundColor: DramusColors.saleGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+        ),
+      );
+    } else if (result == false && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Colors.white,
+              ),
+              SizedBox(width: 8),
+              Text('Erreur lors de la suppression'),
+            ],
+          ),
+          backgroundColor: DramusColors.notificationRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+        ),
+      );
     }
   }
 

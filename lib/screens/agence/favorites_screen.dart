@@ -87,14 +87,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     // context.watch<FavoritesService>(); // Juste pour le rebuild, mais pas pour recharger _favoriteProperties auto.
 
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Mes Favoris',
-            style: TextStyle(
-                color: DramusColors.darkText, fontWeight: FontWeight.bold)),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
-        elevation: 1,
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        elevation: 0,
       ),
       body: _isLoadingProperties
           ? const Center(child: CircularProgressIndicator())
@@ -116,7 +115,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                             Icon(
                               Icons.favorite_border,
                               size: 64,
-                              color: DramusColors.secondaryText
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant
                                   .withValues(alpha: 0.5),
                             ),
                             SizedBox(height: AppSpacing.lg),
@@ -127,7 +128,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                   .titleMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w600,
-                                    color: DramusColors.secondaryText,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                             ),
                             SizedBox(height: AppSpacing.sm),
@@ -138,7 +141,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                   .textTheme
                                   .bodyMedium
                                   ?.copyWith(
-                                    color: DramusColors.secondaryText,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                             ),
                           ],

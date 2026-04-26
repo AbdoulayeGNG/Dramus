@@ -51,7 +51,10 @@ class EmptyConversationsState extends StatelessWidget {
                   customIcon ??
                       (isSearching ? Icons.search_off : Icons.forum_outlined),
                   size: 56,
-                  color: DramusColors.primaryTeal.withValues(alpha: 0.6),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -60,7 +63,7 @@ class EmptyConversationsState extends StatelessWidget {
             Text(
               isSearching ? 'Aucun résultat' : 'Aucune conversation',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: DramusColors.darkText,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
             ),
@@ -72,7 +75,7 @@ class EmptyConversationsState extends StatelessWidget {
                       ? 'Essayez avec d\'autres mots-clés'
                       : 'Les conversations avec vos contacts\napparaîtront ici'),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: DramusColors.secondaryText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     height: 1.5,
                   ),
               textAlign: TextAlign.center,

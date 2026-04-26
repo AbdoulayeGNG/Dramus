@@ -79,7 +79,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Carte des annonces'),
-          backgroundColor: DramusColors.darkPetroleum,
+          backgroundColor: Theme.of(context).colorScheme.surface,
         ),
         body: const Center(
           child: CircularProgressIndicator(),
@@ -110,11 +110,11 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                   height: 130,
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -137,13 +137,18 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                                   if (progress == null) return child;
                                   return Container(
                                     height: 70,
-                                    color: Colors.grey[200],
-                                    child: const Center(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    child: Center(
                                       child: SizedBox(
                                         width: 20,
                                         height: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
                                         ),
                                       ),
                                     ),
@@ -151,9 +156,14 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                                 },
                                 errorBuilder: (_, __, ___) => Container(
                                   height: 70,
-                                  color: Colors.grey[200],
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest,
                                   child: Icon(Icons.home,
-                                      size: 32, color: Colors.grey[400]),
+                                      size: 32,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant),
                                 ),
                               )
                             : Container(
@@ -182,7 +192,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                             Text(
                               '${(property.price / 1000000).toStringAsFixed(1)}M GNF',
                               style: TextStyle(
-                                color: DramusColors.primaryTeal,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 11,
                               ),
@@ -205,7 +215,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -219,7 +229,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                   Icons.location_on,
                   size: isSelected ? 36 : 32,
                   color: isSelected
-                      ? DramusColors.primaryTeal
+                      ? Theme.of(context).colorScheme.primary
                       : DramusColors.premiumYellow,
                 ),
               ),
@@ -312,7 +322,8 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                     width: 96,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: DramusColors.primaryTeal),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary),
                       onPressed: () => setState(() {}),
                       child: const Text('Appliquer',
                           overflow: TextOverflow.ellipsis),
@@ -336,11 +347,14 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
               builder: (context, ctrl) {
                 return Container(
                   decoration: BoxDecoration(
-                    color: DramusColors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(16)),
                     boxShadow: [
-                      BoxShadow(color: Colors.black12, blurRadius: 6)
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 6,
+                      )
                     ],
                   ),
                   child: ListView.builder(
@@ -380,7 +394,10 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         color: selected
-                            ? DramusColors.primaryTeal.withOpacity(0.08)
+                            ? Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.08)
                             : null,
                         child: ListTile(
                           contentPadding: const EdgeInsets.all(8),
@@ -397,13 +414,18 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                                       return Container(
                                         width: 72,
                                         height: 56,
-                                        color: Colors.grey[200],
-                                        child: const Center(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                        child: Center(
                                           child: SizedBox(
                                             width: 16,
                                             height: 16,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary,
                                             ),
                                           ),
                                         ),
@@ -412,9 +434,14 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                                     errorBuilder: (_, __, ___) => Container(
                                       width: 72,
                                       height: 56,
-                                      color: Colors.grey[200],
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest,
                                       child: Icon(Icons.home,
-                                          size: 24, color: Colors.grey[400]),
+                                          size: 24,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant),
                                     ),
                                   )
                                 : Container(
@@ -435,7 +462,12 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                             '${property.location.city}, ${property.location.district} • ${property.type}\n${(property.price / 1000000).toStringAsFixed(1)}M GNF',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
                           ),
                           trailing: Icon(
                             Icons.arrow_forward_ios,

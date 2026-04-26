@@ -62,7 +62,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          backgroundColor: DramusColors.darkPetroleum,
+          backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+          foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
           title: const Text('Détails de l\'annonce'),
           elevation: 0,
         ),
@@ -75,7 +76,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     if (_property == null) {
       return Scaffold(
         appBar: AppBar(
-          backgroundColor: DramusColors.darkPetroleum,
+          backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+          foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
           title: const Text('Détails de l\'annonce'),
           elevation: 0,
         ),
@@ -87,7 +89,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: DramusColors.darkPetroleum,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         title: const Text('Détails de l\'annonce'),
         elevation: 0,
       ),
@@ -136,7 +139,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     if (property.images.isEmpty) {
       return Container(
         height: 250,
-        color: DramusColors.lightBackground,
+        color: Theme.of(context).colorScheme.surfaceVariant,
         child: const Center(
           child: Icon(
             Icons.image_not_supported,
@@ -157,7 +160,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
               return Container(
-                color: DramusColors.lightBackground,
+                color: Theme.of(context).colorScheme.surfaceVariant,
                 child: const Center(
                   child: Icon(
                     Icons.broken_image,
@@ -199,9 +202,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     return Container(
       padding: AppSpacing.paddingMd,
       decoration: BoxDecoration(
-        color: DramusColors.lightBackground,
+        color: Theme.of(context).colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: DramusColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         children: [
@@ -308,9 +311,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         Container(
           padding: AppSpacing.paddingMd,
           decoration: BoxDecoration(
-            color: DramusColors.lightBackground,
+            color: Theme.of(context).colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: DramusColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Row(
             children: [

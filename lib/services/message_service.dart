@@ -2,22 +2,137 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:dramus/models/message_model.dart';
 import 'package:dramus/core/api/api_client.dart';
+import 'package:dramus/services/socket_service.dart';
 
 class MessageService extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient.I;
+  SocketService? _socketService;
 
   List<Conversation> _conversations = [];
   Map<String, List<Message>> _messagesByConversation = {};
   bool _isLoading = false;
   String? currentUserId;
+  int _sessionId = 0; // Pour éviter les race conditions lors de la déconnexion
+  String? _cachedOwnerId; // Pour identifier à qui appartient ce cache
 
   List<Conversation> get conversations => _conversations;
   bool get isLoading => _isLoading;
 
+  /// Définir le service socket
+  void setSocketService(SocketService socketService) {
+    if (_socketService == socketService) return;
+    _socketService = socketService;
+
+    // Écouter les événements du socket
+    _socketService?.addListener(_onSocketServiceChanged);
+
+    if (currentUserId != null) {
+      _socketService?.initialize(currentUserId!);
+    }
+  }
+
+  void _onSocketServiceChanged() {
+    // Si on vient de se connecter, on pourrait vouloir rafraîchir
+    if (_socketService?.isConnected == true) {
+      // Re-join room is handled by SocketService internally on connection
+      syncPendingDeliveries();
+    }
+  }
+
+  /// Configurer les écouteurs de socket pour les messages
+  void setupSocketListeners() {
+    _socketService?.setCallbacks(
+      onNewMessage: handleNewSocketMessage,
+      onStatusUpdate: handleStatusUpdate,
+    );
+  }
+
+  /// Gérer un nouveau message reçu par socket
+  void handleNewSocketMessage(Map<String, dynamic> data) {
+    try {
+      final newMessage = Message.fromJson(data);
+      final otherUserId = newMessage.senderId == currentUserId
+          ? newMessage.receiverId
+          : newMessage.senderId;
+
+      // Ajouter au cache local
+      if (!_messagesByConversation.containsKey(otherUserId)) {
+        _messagesByConversation[otherUserId] = [];
+      }
+
+      // Éviter les doublons
+      if (!_messagesByConversation[otherUserId]!
+          .any((m) => m.id == newMessage.id)) {
+        _messagesByConversation[otherUserId]!.add(newMessage);
+
+        // Mettre à jour la conversation
+        final convIndex = _conversations.indexWhere((c) => c.id == otherUserId);
+        if (convIndex != -1) {
+          _conversations[convIndex] = _conversations[convIndex].copyWith(
+            lastMessage: newMessage,
+            updatedAt: newMessage.createdAt,
+          );
+        }
+
+        // Si l'app est ouverte sur cette conversation, on marque comme livré via API
+        if (newMessage.receiverId == currentUserId) {
+          _markDeliveredSilently(newMessage.id);
+        }
+
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('MessageService: Error handling socket message: $e');
+    }
+  }
+
+  /// Gérer une mise à jour de statut par socket
+  void handleStatusUpdate(Map<String, dynamic> data) {
+    try {
+      final String messageId = data['messageId']?.toString() ?? '';
+      final String status = data['status']?.toString() ?? '';
+
+      if (messageId.isEmpty || status.isEmpty) return;
+
+      bool found = false;
+      for (var messages in _messagesByConversation.values) {
+        final idx = messages.indexWhere((m) => m.id == messageId);
+        if (idx != -1) {
+          // Ne pas rétrograder le statut
+          if (status == 'read' || messages[idx].status != 'read') {
+            messages[idx] = messages[idx].copyWith(
+              status: status,
+              read: status == 'read' ? true : messages[idx].read,
+            );
+            found = true;
+          }
+          break;
+        }
+      }
+
+      if (found) {
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('MessageService: Error handling status update: $e');
+    }
+  }
+
   /// Définir l'ID de l'utilisateur courant
   void setCurrentUserId(String userId) {
+    if (_cachedOwnerId != null && _cachedOwnerId != userId) {
+      debugPrint(
+          'MessageService: User ID changed from $_cachedOwnerId to $userId. Clearing cache.');
+      clear();
+    }
     currentUserId = userId;
+    _cachedOwnerId = userId;
     debugPrint('MessageService: Current user ID set to: $userId');
+
+    // Initialiser le socket si le service est disponible
+    if (_socketService != null) {
+      _socketService?.initialize(userId);
+    }
   }
 
   /// Charger toutes les conversations de l'utilisateur
@@ -35,7 +150,15 @@ class MessageService extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
+      final capturedSessionId = _sessionId;
+
       final response = await _apiClient.dio.get('/api/messages');
+
+      if (capturedSessionId != _sessionId) {
+        debugPrint(
+            'MessageService: Aborting loadConversations - session changed');
+        return;
+      }
 
       debugPrint(
           'MessageService: Conversations response status: ${response.statusCode}');
@@ -153,8 +276,16 @@ class MessageService extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
+      final capturedSessionId = _sessionId;
+
       final response =
           await _apiClient.dio.get('/api/messages/conversation/$otherUserId');
+
+      if (capturedSessionId != _sessionId) {
+        debugPrint(
+            'MessageService: Aborting loadConversation - session changed');
+        return;
+      }
 
       debugPrint('MessageService: Response status: ${response.statusCode}');
       debugPrint('MessageService: Response data: ${response.data}');
@@ -367,7 +498,8 @@ class MessageService extends ChangeNotifier {
         for (var messages in _messagesByConversation.values) {
           final msgIndex = messages.indexWhere((m) => m.id == messageId);
           if (msgIndex != -1) {
-            messages[msgIndex] = messages[msgIndex].copyWith(read: true);
+            messages[msgIndex] =
+                messages[msgIndex].copyWith(read: true, status: 'read');
             break;
           }
         }
@@ -385,12 +517,66 @@ class MessageService extends ChangeNotifier {
 
   /// Marquer tous les messages d'une conversation comme lus
   Future<void> markConversationAsRead(String conversationId) async {
-    final messages = _messagesByConversation[conversationId] ?? [];
+    try {
+      debugPrint(
+          'MessageService: Marking conversation as read: $conversationId');
 
-    for (var message in messages) {
-      if (!message.read && message.receiverId == currentUserId) {
-        await markMessageAsRead(message.id);
+      final response = await _apiClient.dio
+          .patch('/api/message/conversation/$conversationId/read');
+
+      debugPrint('MessageService: Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        // Mettre à jour les messages localement
+        if (_messagesByConversation.containsKey(conversationId)) {
+          final messages = _messagesByConversation[conversationId]!;
+          for (var i = 0; i < messages.length; i++) {
+            if (messages[i].receiverId == currentUserId) {
+              messages[i] = messages[i].copyWith(read: true, status: 'read');
+            }
+          }
+        }
+        notifyListeners();
       }
+    } on DioException catch (e) {
+      debugPrint(
+          'MessageService: Error marking conversation as read: ${e.message}');
+    }
+  }
+
+  /// Marquer un message comme reçu (delivered)
+  Future<bool> markMessageAsDelivered(String messageId) async {
+    try {
+      debugPrint('MessageService: Marking message as delivered: $messageId');
+
+      final response =
+          await _apiClient.dio.patch('/api/messages/$messageId/delivered');
+
+      debugPrint('MessageService: Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        // Mettre à jour le message localement
+        for (var messages in _messagesByConversation.values) {
+          final msgIndex = messages.indexWhere((m) => m.id == messageId);
+          if (msgIndex != -1) {
+            // Un message lu est déjà "au-delà" du statut livré
+            if (messages[msgIndex].status != 'read') {
+              messages[msgIndex] =
+                  messages[msgIndex].copyWith(status: 'delivered');
+            }
+            break;
+          }
+        }
+
+        notifyListeners();
+        return true;
+      }
+
+      return false;
+    } on DioException catch (e) {
+      debugPrint(
+          'MessageService: Error marking message as delivered: ${e.message}');
+      return false;
     }
   }
 
@@ -398,6 +584,18 @@ class MessageService extends ChangeNotifier {
   Future<bool> deleteMessage(String messageId) async {
     try {
       debugPrint('MessageService: Deleting message: $messageId');
+
+      // Vérifier si on est l'expéditeur de ce message dans le cache
+      Message? targetMsg;
+      for (var messages in _messagesByConversation.values) {
+        targetMsg = messages.where((m) => m.id == messageId).firstOrNull;
+        if (targetMsg != null) break;
+      }
+
+      if (targetMsg != null && targetMsg.senderId != currentUserId) {
+        debugPrint('MessageService: Cannot delete message - not the sender');
+        return false;
+      }
 
       final response = await _apiClient.dio.delete('/api/messages/$messageId');
 
@@ -491,8 +689,45 @@ class MessageService extends ChangeNotifier {
     }
   }
 
+  /// Synchroniser les messages reçus hors-ligne (marquer comme livrés)
+  Future<void> syncPendingDeliveries() async {
+    if (currentUserId == null) return;
+
+    debugPrint('MessageService: Syncing pending deliveries...');
+    int count = 0;
+
+    for (var conversationId in _messagesByConversation.keys) {
+      final messages = _messagesByConversation[conversationId]!;
+      for (var i = 0; i < messages.length; i++) {
+        final msg = messages[i];
+        if (msg.receiverId == currentUserId && msg.status == 'sent') {
+          await _markDeliveredSilently(msg.id);
+          messages[i] = msg.copyWith(status: 'delivered');
+          count++;
+        }
+      }
+    }
+
+    if (count > 0) {
+      notifyListeners();
+      debugPrint(
+          'MessageService: Marked $count messages as delivered during sync');
+    }
+  }
+
+  /// Marquer un message comme reçu en silence (pour le background/socket)
+  Future<void> _markDeliveredSilently(String messageId) async {
+    try {
+      await _apiClient.dio.patch('/api/messages/$messageId/delivered');
+    } catch (e) {
+      debugPrint('MessageService: Silent delivery mark failed: $e');
+    }
+  }
+
   /// Réinitialiser le service (lors de la déconnexion)
   void clear() {
+    _sessionId++;
+    _cachedOwnerId = null;
     _conversations = [];
     _messagesByConversation = {};
     currentUserId = null;

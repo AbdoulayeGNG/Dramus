@@ -34,14 +34,11 @@ class _AboutScreenState extends State<AboutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
       appBar: AppBar(
         title: const Text(
           'À propos',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkPetroleum,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -49,17 +46,14 @@ class _AboutScreenState extends State<AboutScreen> {
           children: [
             const SizedBox(height: AppSpacing.xxl),
             _buildLogoSection(),
-            const SizedBox(height: AppSpacing.xxl),
             _buildMissionSection(),
-            const SizedBox(height: AppSpacing.xl),
-            _buildLegalSection(),
             const SizedBox(height: AppSpacing.xl),
             _buildSocialSection(),
             const SizedBox(height: AppSpacing.xxl),
             Text(
               '© ${DateTime.now().year} Dramus. Tous droits réservés.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: DramusColors.secondaryText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
             const SizedBox(height: AppSpacing.xxl),
@@ -76,20 +70,23 @@ class _AboutScreenState extends State<AboutScreen> {
           width: 100,
           height: 100,
           decoration: BoxDecoration(
-            color: DramusColors.primaryTeal,
+            color: Theme.of(context).colorScheme.primary,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: DramusColors.primaryTeal.withOpacity(0.3),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: const Icon(
+          child: Icon(
             Icons.home_work_outlined,
             size: 50,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.onPrimary,
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -97,14 +94,14 @@ class _AboutScreenState extends State<AboutScreen> {
           'DRAMUS',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: DramusColors.darkPetroleum,
+                color: Theme.of(context).colorScheme.primary,
                 letterSpacing: 1.5,
               ),
         ),
         Text(
           'Version $_version ($_buildNumber)',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: DramusColors.secondaryText,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
         ),
       ],
@@ -120,7 +117,6 @@ class _AboutScreenState extends State<AboutScreen> {
             'Notre Mission',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: DramusColors.darkPetroleum,
                 ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -128,37 +124,11 @@ class _AboutScreenState extends State<AboutScreen> {
             'Dramus est la plateforme immobilière de référence en Guinée. Notre mission est de simplifier la recherche et la gestion de biens immobiliers grâce à une technologie de pointe et une expérience utilisateur premium.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: DramusColors.darkText,
                   height: 1.6,
                 ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildLegalSection() {
-    return _buildCardSection(
-      title: 'Informations Légales',
-      items: [
-        _buildListTile(
-          icon: Icons.description_outlined,
-          label: 'Conditions Générales d\'Utilisation',
-          onTap: () {},
-        ),
-        _buildDivider(),
-        _buildListTile(
-          icon: Icons.privacy_tip_outlined,
-          label: 'Politique de Confidentialité',
-          onTap: () {},
-        ),
-        _buildDivider(),
-        _buildListTile(
-          icon: Icons.gavel_outlined,
-          label: 'Mentions Légales',
-          onTap: () {},
-        ),
-      ],
     );
   }
 
@@ -199,7 +169,7 @@ class _AboutScreenState extends State<AboutScreen> {
             child: Text(
               title,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: DramusColors.secondaryText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.bold,
                   ),
             ),
@@ -208,7 +178,7 @@ class _AboutScreenState extends State<AboutScreen> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              side: const BorderSide(color: DramusColors.border),
+              side: BorderSide(color: Theme.of(context).dividerColor),
             ),
             child: Column(children: items),
           ),
@@ -223,16 +193,16 @@ class _AboutScreenState extends State<AboutScreen> {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      leading: Icon(icon, color: DramusColors.primaryTeal, size: 22),
+      leading:
+          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
       title: Text(
         label,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
       ),
-      trailing: const Icon(Icons.arrow_forward_ios,
-          size: 14, color: DramusColors.secondaryText),
+      trailing: Icon(Icons.arrow_forward_ios,
+          size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
       onTap: onTap,
     );
   }

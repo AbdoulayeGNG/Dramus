@@ -33,10 +33,7 @@ class _ListingsScreenState extends State<ListingsScreen> {
     _isLoading = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final listingService = context.read<ListingService>();
-      // Charger les données seulement si elles ne sont pas déjà en cache
-      if (!listingService.isLoaded) {
-        await listingService.getAllListings();
-      }
+      await listingService.getAllListings();
       // Toujours charger les favoris pour s'assurer que les cœurs sont à jour
       if (mounted) {
         await context.read<FavoritesService>().loadFavorites();
@@ -108,18 +105,18 @@ class _ListingsScreenState extends State<ListingsScreen> {
                 hintText: 'Rechercher par titre ou localisation',
                 prefixIcon: Icon(
                   Icons.search,
-                  color: DramusColors.secondaryText,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.lg),
-                  borderSide: const BorderSide(
-                    color: DramusColors.border,
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppRadius.lg),
-                  borderSide: const BorderSide(
-                    color: DramusColors.border,
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor,
                   ),
                 ),
               ),
@@ -141,11 +138,11 @@ class _ListingsScreenState extends State<ListingsScreen> {
           ),
           SizedBox(height: AppSpacing.lg),
           if (_isLoading)
-            const Center(
+            Center(
               child: Padding(
                 padding: EdgeInsets.all(32.0),
                 child: CircularProgressIndicator(
-                  color: DramusColors.primaryTeal,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             )
@@ -158,7 +155,7 @@ class _ListingsScreenState extends State<ListingsScreen> {
                     Icon(
                       Icons.search_off,
                       size: 48,
-                      color: DramusColors.secondaryText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     SizedBox(height: AppSpacing.lg),
                     Text(
@@ -171,7 +168,8 @@ class _ListingsScreenState extends State<ListingsScreen> {
                     Text(
                       'Essayez d\'ajuster vos critères de recherche',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: DramusColors.secondaryText,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],
@@ -302,7 +300,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     if (_property == null) {
       return Scaffold(
         appBar: AppBar(
-          backgroundColor: DramusColors.darkPetroleum,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           elevation: 0,
         ),
         body: const Center(
@@ -367,10 +365,12 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
                             return Container(
-                              color: Colors.grey[200],
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  color: DramusColors.primaryTeal,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             );
@@ -459,8 +459,10 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                     Text(
                       'Le propriétaire n\'a pas ajouté de photos',
                       style: TextStyle(
-                        color:
-                            DramusColors.secondaryText.withValues(alpha: 0.7),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant
+                            .withValues(alpha: 0.7),
                         fontSize: 12,
                       ),
                     ),
@@ -490,8 +492,8 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                       borderRadius: BorderRadius.circular(AppRadius.md),
                       border: Border.all(
                         color: isSelected
-                            ? DramusColors.primaryTeal
-                            : DramusColors.border,
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).dividerColor,
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -586,7 +588,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
           children: [
             Icon(
               Icons.location_on,
-              color: DramusColors.primaryTeal,
+              color: Theme.of(context).colorScheme.primary,
             ),
             SizedBox(width: AppSpacing.sm),
             Text(
@@ -616,7 +618,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     return Container(
       padding: AppSpacing.paddingMd,
       decoration: BoxDecoration(
-        color: DramusColors.lightBackground,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Column(
@@ -683,9 +685,10 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
           builder: (_) => MainAppScreen(
             initialTabIndex: 3, // Index de l'onglet Messages
             selectedConversationId: property.ownerId,
-            propertyId: property
-                .id, // Passer le propertyId pour lier le message à la propriété
+            propertyId: property.id,
             ownerName: property.owner.fullName,
+            prefilledMessage:
+                'Bonjour, je suis intéressé(e) par votre bien "${property.title}". Est-il toujours disponible?',
           ),
         ),
         (route) => false, // Supprimer toutes les routes précédentes
@@ -719,9 +722,9 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
         Container(
           padding: AppSpacing.paddingMd,
           decoration: BoxDecoration(
-            color: DramusColors.lightBackground,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: DramusColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,8 +785,9 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                       icon: const Icon(Icons.mail),
                       label: const Text('Envoyer un message'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: DramusColors.deepTeal,
-                        foregroundColor: DramusColors.white,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),

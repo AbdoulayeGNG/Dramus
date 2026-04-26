@@ -14,6 +14,7 @@ class MessagesScreen extends StatefulWidget {
   final String? preselectedConversationId;
   final String? propertyId;
   final String? ownerName;
+  final String? prefilledMessage;
   final VoidCallback? onConversationOpened;
 
   const MessagesScreen({
@@ -21,6 +22,7 @@ class MessagesScreen extends StatefulWidget {
     this.preselectedConversationId,
     this.propertyId,
     this.ownerName,
+    this.prefilledMessage,
     this.onConversationOpened,
   });
 
@@ -32,6 +34,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   String? _selectedConversationId;
   bool _isInitialized = false;
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _messageController = TextEditingController();
   String _searchQuery = '';
   bool _isSending = false;
 
@@ -46,6 +49,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
@@ -63,6 +67,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
       if (widget.preselectedConversationId != null) {
         setState(() {
           _selectedConversationId = widget.preselectedConversationId;
+          // Pré-remplir le message si fourni
+          if (widget.prefilledMessage != null) {
+            _messageController.text = widget.prefilledMessage!;
+          }
         });
         messageService.loadConversation(widget.preselectedConversationId!);
         // Signaler que la conv pré-sélectionnée a été ouverte
@@ -97,7 +105,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       builder: (context, messageService, _) {
         if (!_isInitialized) {
           return Scaffold(
-            backgroundColor: DramusColors.lightBackground,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -109,7 +117,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   Text(
                     'Chargement des conversations...',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: DramusColors.secondaryText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                 ],
@@ -165,9 +173,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     // Vue de la liste des conversations avec AppBar
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: DramusColors.darkPetroleum,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         title: Text(
           'Messages',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -211,7 +219,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         children: [
           // Barre de recherche
           Container(
-            color: DramusColors.white,
+            color: Theme.of(context).colorScheme.surface,
             padding: AppSpacing.paddingMd,
             child: TextField(
               controller: _searchController,
@@ -222,15 +230,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
               },
               decoration: InputDecoration(
                 hintText: 'Rechercher une conversation...',
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.search,
-                  color: DramusColors.secondaryText,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.clear,
-                          color: DramusColors.secondaryText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         onPressed: () {
                           _searchController.clear();
@@ -261,7 +269,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 ),
                 contentPadding: AppSpacing.horizontalMd + AppSpacing.verticalSm,
                 filled: true,
-                fillColor: DramusColors.lightBackground,
+                fillColor: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -284,7 +295,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         SizedBox(
           width: 380,
           child: Container(
-            color: DramusColors.white,
+            color: Theme.of(context).colorScheme.surface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -322,7 +333,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                     .textTheme
                                     .labelSmall
                                     ?.copyWith(
-                                      color: DramusColors.white,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimary,
                                       fontWeight: FontWeight.bold,
                                     ),
                               ),
@@ -425,8 +438,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       Icon(
                         Icons.mail_outline,
                         size: 80,
-                        color:
-                            DramusColors.secondaryText.withValues(alpha: 0.5),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant
+                            .withValues(alpha: 0.5),
                       ),
                       SizedBox(height: AppSpacing.lg),
                       Text(
@@ -441,7 +456,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       Text(
                         'Choisissez une conversation dans la liste',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: DramusColors.secondaryText,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                       ),
                     ],
@@ -491,7 +508,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
           hasUnread: hasUnread,
           currentUserId: authController.user?.id,
           onTap: () async {
-            setState(() => _selectedConversationId = conv.id);
+            setState(() {
+              _selectedConversationId = conv.id;
+              // On peut vider le controller ici ou le garder selon l'UX souhaitée
+              // _messageController.clear();
+            });
             messageService.loadConversation(conv.id);
             await messageService.markConversationAsRead(conv.id);
           },
@@ -504,15 +525,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
       BuildContext context, MessageService messageService, Conversation conv) {
     final messages = messageService.getMessagesForConversation(conv.id);
     debugPrint('ChatView: id=${conv.id}, msg_count=${messages.length}');
-    final messageInputController = TextEditingController();
     final scrollController = ScrollController();
     final authController = Provider.of<AuthController>(context, listen: false);
     final currentUserId = authController.user?.id ?? '';
 
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: DramusColors.darkPetroleum,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         leading: MediaQuery.of(context).size.width < 900
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: DramusColors.white),
@@ -536,29 +556,33 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         height: 40,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
-                          color:
-                              DramusColors.primaryTeal.withValues(alpha: 0.2),
-                          child: const Center(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.1),
+                          child: Center(
                             child: SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: DramusColors.white,
+                                color: Theme.of(context).colorScheme.onPrimary,
                               ),
                             ),
                           ),
                         ),
                         errorWidget: (context, url, error) => CircleAvatar(
                           radius: 20,
-                          backgroundColor: DramusColors.primaryTeal,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
                           child: Text(
                             _getInitials(conv.user2Name),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(
-                                  color: DramusColors.white,
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
@@ -568,11 +592,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   )
                 : CircleAvatar(
                     radius: 20,
-                    backgroundColor: DramusColors.primaryTeal,
+                    backgroundColor: Theme.of(context)
+                        .colorScheme
+                        .onPrimary
+                        .withValues(alpha: 0.2),
                     child: Text(
                       _getInitials(conv.user2Name),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: DramusColors.white,
+                            color: Theme.of(context).colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -588,7 +615,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         ? conv.user2Name
                         : 'Utilisateur inconnu',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: DramusColors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -732,10 +759,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
           // Zone de saisie avec indicateur de chargement
           Container(
             decoration: BoxDecoration(
-              color: DramusColors.white,
+              color: Theme.of(context).colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: DramusColors.darkText.withValues(alpha: 0.05),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.05),
                   blurRadius: 4,
                   offset: const Offset(0, -2),
                 ),
@@ -747,7 +777,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 children: [
                   Expanded(
                     child: TextField(
-                      controller: messageInputController,
+                      controller: _messageController,
                       maxLines: null,
                       enabled: !_isSending,
                       textInputAction: TextInputAction.newline,
@@ -784,27 +814,30 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             AppSpacing.horizontalMd + AppSpacing.verticalMd,
                         filled: true,
                         fillColor: _isSending
-                            ? DramusColors.lightGray
-                            : DramusColors.lightBackground,
+                            ? Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.1)
+                            : Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.05),
                       ),
                     ),
                   ),
                   SizedBox(width: AppSpacing.md),
                   Material(
                     color: _isSending
-                        ? DramusColors.secondaryText
-                        : DramusColors.primaryTeal,
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
+                        : Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(AppRadius.xl),
                     child: InkWell(
                       onTap: _isSending
                           ? null
                           : () async {
-                              if (messageInputController.text
-                                  .trim()
-                                  .isNotEmpty) {
-                                final content =
-                                    messageInputController.text.trim();
-                                messageInputController.clear();
+                              if (_messageController.text.trim().isNotEmpty) {
+                                final content = _messageController.text.trim();
+                                _messageController.clear();
 
                                 setState(() {
                                   _isSending = true;
@@ -907,17 +940,18 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       child: Container(
                         padding: AppSpacing.paddingMd,
                         child: _isSending
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: DramusColors.white,
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary,
                                 ),
                               )
-                            : const Icon(
+                            : Icon(
                                 Icons.send_rounded,
-                                color: DramusColors.white,
+                                color: Theme.of(context).colorScheme.onPrimary,
                               ),
                       ),
                     ),
@@ -933,62 +967,102 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Future<void> _deleteMessage(
       MessageService messageService, String messageId) async {
-    final confirmed = await showDialog<bool>(
+    bool isDeleting = false;
+
+    final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        title: const Text('Supprimer le message'),
-        content: const Text('Voulez-vous vraiment supprimer ce message ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Annuler',
-              style: TextStyle(color: DramusColors.secondaryText),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Supprimer',
-              style: TextStyle(color: DramusColors.notificationRed),
-            ),
-          ),
-        ],
+            title: const Text('Supprimer le message'),
+            content: const Text('Voulez-vous vraiment supprimer ce message ?'),
+            actions: [
+              TextButton(
+                onPressed: isDeleting ? null : () => Navigator.pop(context),
+                child: Text(
+                  'Annuler',
+                  style: TextStyle(
+                    color: isDeleting
+                        ? DramusColors.secondaryText.withValues(alpha: 0.5)
+                        : DramusColors.secondaryText,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: isDeleting
+                    ? null
+                    : () async {
+                        setDialogState(() => isDeleting = true);
+                        final success =
+                            await messageService.deleteMessage(messageId);
+                        if (context.mounted) {
+                          Navigator.pop(context, success);
+                        }
+                      },
+                child: isDeleting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: DramusColors.notificationRed,
+                        ),
+                      )
+                    : Text(
+                        'Supprimer',
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
 
-    if (confirmed == true) {
-      final success = await messageService.deleteMessage(messageId);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  success ? Icons.check_circle : Icons.error_outline,
-                  color: DramusColors.white,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  success
-                      ? 'Message supprimé'
-                      : 'Erreur lors de la suppression',
-                ),
-              ],
-            ),
-            backgroundColor:
-                success ? DramusColors.saleGreen : DramusColors.notificationRed,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(
+                Icons.check_circle,
+                color: DramusColors.white,
+              ),
+              const SizedBox(width: 8),
+              const Text('Message supprimé'),
+            ],
           ),
-        );
-      }
+          backgroundColor: DramusColors.saleGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+        ),
+      );
+    } else if (result == false && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: DramusColors.white,
+              ),
+              const SizedBox(width: 8),
+              const Text('Erreur lors de la suppression'),
+            ],
+          ),
+          backgroundColor: DramusColors.notificationRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+        ),
+      );
     }
   }
 

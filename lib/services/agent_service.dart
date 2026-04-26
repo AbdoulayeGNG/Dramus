@@ -8,15 +8,34 @@ class AgentService extends ChangeNotifier {
 
   List<AgentModel> _agents = [];
   bool _isLoading = false;
+  int _sessionId = 0; // Pour éviter les race conditions lors de la déconnexion
+  String? _cachedOwnerId; // Pour identifier à qui appartient ce cache
 
   List<AgentModel> get agents => _agents;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchAgents() async {
+  Future<void> fetchAgents({bool forceRefresh = false}) async {
+    // Fail-safe: si le cache était pour une session précédente (null), on force
+    if (_cachedOwnerId == null) forceRefresh = true;
+
+    if (_agents.isNotEmpty && !forceRefresh) {
+      debugPrint('AgentService: Returning cached agents');
+      return;
+    }
+
     _isLoading = true;
+    _cachedOwnerId = "active_session";
     notifyListeners();
+
+    final capturedSessionId = _sessionId;
+
     try {
       final response = await _dio.get('/api/agents');
+
+      if (capturedSessionId != _sessionId) {
+        debugPrint('AgentService: Aborting fetchAgents - session changed');
+        return;
+      }
       if (response.statusCode == 200) {
         // Backend might wrap in { success: true, data: [...] }
         final dynamic responseData = response.data;
@@ -90,5 +109,14 @@ class AgentService extends ChangeNotifier {
       debugPrint('Error deleting agent: $e');
     }
     return false;
+  }
+
+  void clear() {
+    _sessionId++;
+    _cachedOwnerId = null;
+    _agents = [];
+    _isLoading = false;
+    debugPrint('AgentService: Cache cleared');
+    notifyListeners();
   }
 }

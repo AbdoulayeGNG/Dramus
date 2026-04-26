@@ -80,12 +80,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Modifier mon profil',
-            style: TextStyle(color: DramusColors.darkText)),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
-        elevation: 1,
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        elevation: 0,
       ),
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Form(
@@ -167,7 +167,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 decoration: BoxDecoration(
                   color: DramusColors.primaryTeal,
                   shape: BoxShape.circle,
-                  border: Border.all(color: DramusColors.white, width: 2),
+                  border: Border.all(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      width: 2),
                 ),
                 child: const Icon(
                   Icons.camera_alt,
@@ -195,22 +197,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: DramusColors.secondaryText),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: DramusColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: DramusColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide:
-              const BorderSide(color: DramusColors.primaryTeal, width: 2),
-        ),
-        filled: true,
-        fillColor: DramusColors.white,
+        prefixIcon: Icon(icon),
       ),
     );
   }

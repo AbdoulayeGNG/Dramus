@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/services/user_service.dart';
-import 'package:dramus/services/auth_service.dart';
 import 'package:dramus/screens/agence/favorites_screen.dart';
+import 'package:dramus/screens/notifications_screen.dart';
 import 'package:dramus/services/favorites_service.dart';
 import 'listings_screen.dart';
 import 'home_screen.dart';
@@ -12,7 +12,10 @@ import 'messages_screen.dart';
 import 'profile_screen.dart';
 import 'package:dramus/services/message_service.dart';
 import 'package:dramus/services/agent_service.dart';
+import 'package:dramus/services/notification_service.dart';
 import 'publish_screen.dart';
+import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/core/state/auth_controller.dart';
 import 'agents_list_screen.dart';
 
 class MainAppScreenAgence extends StatefulWidget {
@@ -74,12 +77,33 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
         false;
 
     if (shouldLogout) {
-      await AuthService.instance.logout();
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
+      // Réinitialiser tous les services avant la déconnexion
+      if (mounted) {
+        try {
+          context.read<ListingService>().reset();
+          context.read<FavoritesService>().clearFavorites();
+          context.read<MessageService>().clear();
+          context.read<AgentService>().clear();
+
+          try {
+            final notifs = context.read<NotificationService>();
+            notifs.unregisterToken();
+            notifs.reset();
+          } catch (e) {
+            debugPrint('Could not reset NotificationService: $e');
+          }
+        } catch (e) {
+          debugPrint('Error during services reset: $e');
+        }
+
+        await context.read<AuthController>().signOut();
+
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
     }
   }
 
@@ -99,7 +123,7 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
             Container(
               width: double.infinity,
               padding: EdgeInsets.all(AppSpacing.lg),
-              color: DramusColors.darkPetroleum,
+              color: Theme.of(context).colorScheme.primary,
               child: Row(
                 children: [
                   CircleAvatar(
@@ -137,7 +161,7 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                         Text(
                           email,
                           style: TextStyle(
-                            color: DramusColors.lightGray,
+                            color: Colors.white.withValues(alpha: 0.8),
                             fontSize: 13,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -159,14 +183,14 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                       Icons.dashboard,
                       color: _selectedIndex == 0
                           ? DramusColors.primaryTeal
-                          : DramusColors.darkText,
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                     title: Text(
                       'Tableau de bord',
                       style: TextStyle(
                         color: _selectedIndex == 0
                             ? DramusColors.primaryTeal
-                            : DramusColors.darkText,
+                            : Theme.of(context).colorScheme.onSurface,
                         fontWeight: _selectedIndex == 0
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -179,14 +203,14 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                       Icons.search,
                       color: _selectedIndex == 1
                           ? DramusColors.primaryTeal
-                          : DramusColors.darkText,
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                     title: Text(
                       'Rechercher des annonces',
                       style: TextStyle(
                         color: _selectedIndex == 1
                             ? DramusColors.primaryTeal
-                            : DramusColors.darkText,
+                            : Theme.of(context).colorScheme.onSurface,
                         fontWeight: _selectedIndex == 1
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -195,9 +219,9 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                     onTap: () => _setIndexAndClose(1),
                   ),
                   ListTile(
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.favorite,
-                      color: DramusColors.darkText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     title: const Text('Mes favoris'),
                     onTap: () {
@@ -210,9 +234,9 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                     },
                   ),
                   ListTile(
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.home_work,
-                      color: DramusColors.darkText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     title: const Text('Mes annonces'),
                     onTap: () => _setIndexAndClose(1),
@@ -221,7 +245,7 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                     ListTile(
                       leading: Icon(
                         Icons.group,
-                        color: DramusColors.darkText,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       title: const Text('Mes agents'),
                       onTap: () {
@@ -233,11 +257,11 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                         );
                       },
                     ),
-                  
-                  ListTile(
+
+                  /* ListTile(
                     leading: Icon(
                       Icons.bar_chart,
-                      color: DramusColors.darkText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     title: const Text('Nos statistiques'),
                     onTap: () {
@@ -248,19 +272,19 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                   ListTile(
                     leading: Icon(
                       Icons.calendar_today,
-                      color: DramusColors.darkText,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     title: const Text('Visites prévues'),
                     onTap: () {
                       Navigator.of(context).pop();
                       // TODO: Naviguer vers VisitsScreen
                     },
-                  ),
+                  ),*/
 
                   const Divider(),
 
                   // Section secondaire
-                  ListTile(
+                  /* ListTile(
                     leading: Icon(Icons.settings, color: DramusColors.darkText),
                     title: const Text('Paramètres'),
                     onTap: () {
@@ -275,9 +299,10 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                       Navigator.of(context).pop();
                       // TODO: push HelpScreen()
                     },
-                  ),
+                  ),*/
                   ListTile(
-                    leading: Icon(Icons.logout, color: DramusColors.darkText),
+                    leading: Icon(Icons.logout,
+                        color: Theme.of(context).colorScheme.onSurface),
                     title: const Text('Déconnexion'),
                     onTap: _confirmLogout,
                   ),
@@ -291,7 +316,7 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
               child: Text(
                 'DRAMUS © ${DateTime.now().year}',
                 style: TextStyle(
-                  color: DramusColors.secondaryText,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 12,
                 ),
               ),
@@ -304,78 +329,56 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => MessageService()),
-        ChangeNotifierProvider(create: (_) => UserService()),
-        ChangeNotifierProvider(create: (_) => FavoritesService()),
-        ChangeNotifierProvider(create: (_) => AgentService()),
-      ],
-      child: Builder(
-        builder: (context) {
-          return Scaffold(
-            key: _scaffoldKey,
-            appBar: _selectedIndex == 2
-                ? null
-                : AppBar(
-                    backgroundColor: DramusColors.white,
-                    foregroundColor: DramusColors.darkText,
-                    elevation: 0,
-                    title: Text(
-                      _appBarTitle,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    leading: IconButton(
-                      icon: const Icon(
-                        Icons.menu,
-                        color: DramusColors.darkText,
-                      ),
-                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                    ),
-                    actions: [
-                      if (_selectedIndex == 2)
-                        IconButton(
-                          icon: const Icon(Icons.refresh),
-                          color: DramusColors.darkText,
-                          onPressed: () {
-                            Provider.of<MessageService>(context, listen: false)
-                                .loadConversations();
-                          },
-                        ),
-                      // Bouton notifications
-                      IconButton(
-                        icon: const Icon(Icons.notifications_outlined),
-                        color: DramusColors.darkText,
-                        onPressed: () {
-                          // TODO: Naviguer vers NotificationsScreen
-                        },
-                      ),
-                    ],
-                  ),
-            drawer: _buildDrawer(context),
-            body: Consumer<UserService>(
-              builder: (context, userService, _) {
-                return _pages[_selectedIndex];
-              },
+    return Scaffold(
+      key: _scaffoldKey,
+      appBar: _selectedIndex == 2
+          ? null
+          : AppBar(
+              backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+              foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+              elevation: 0,
+              title: Text(
+                _appBarTitle,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              leading: IconButton(
+                icon: Icon(
+                  Icons.menu,
+                  color: Theme.of(context).appBarTheme.foregroundColor,
+                ),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
+              actions: [
+                // Bouton notifications
+                IconButton(
+                  icon: Icon(Icons.notifications_outlined,
+                      color: Theme.of(context).appBarTheme.foregroundColor),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (context) => const NotificationsScreen()),
+                    );
+                  },
+                ),
+              ],
             ),
-            bottomNavigationBar: _buildBottomNavBar(context),
-            floatingActionButton: _buildFAB(context),
-          );
-        },
-      ),
+      drawer: _buildDrawer(context),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: _buildBottomNavBar(context),
+      floatingActionButton: _buildFAB(context),
     );
   }
 
   Widget _buildBottomNavBar(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: DramusColors.white,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         border: Border(
           top: BorderSide(
-            color: DramusColors.border,
+            color: Theme.of(context).dividerColor,
             width: 1,
           ),
         ),
@@ -385,8 +388,9 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
           final unreadCount = messageService.getUnreadCount();
 
           return NavigationBar(
-            backgroundColor: DramusColors.white,
-            indicatorColor: DramusColors.primaryTeal.withValues(alpha: 0.1),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            indicatorColor:
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
             selectedIndex: _selectedIndex,
             onDestinationSelected: (index) {
               setState(() => _selectedIndex = index);
@@ -396,8 +400,8 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                 icon: Icon(
                   _selectedIndex == 0 ? Icons.home : Icons.home_outlined,
                   color: _selectedIndex == 0
-                      ? DramusColors.primaryTeal
-                      : DramusColors.secondaryText,
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 label: 'Accueil',
               ),
@@ -407,8 +411,8 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                       ? Icons.apartment
                       : Icons.apartment_outlined,
                   color: _selectedIndex == 1
-                      ? DramusColors.primaryTeal
-                      : DramusColors.secondaryText,
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 label: 'Annonces',
               ),
@@ -418,8 +422,8 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                     Icon(
                       _selectedIndex == 2 ? Icons.mail : Icons.mail_outlined,
                       color: _selectedIndex == 2
-                          ? DramusColors.primaryTeal
-                          : DramusColors.secondaryText,
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     if (unreadCount > 0)
                       Positioned(
@@ -437,11 +441,14 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                           ),
                           child: Text(
                             '$unreadCount',
-                            style: const TextStyle(
-                              color: DramusColors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 8,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 8,
+                                  color: Theme.of(context).colorScheme.onError,
+                                ),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -454,8 +461,8 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                 icon: Icon(
                   _selectedIndex == 3 ? Icons.person : Icons.person_outlined,
                   color: _selectedIndex == 3
-                      ? DramusColors.primaryTeal
-                      : DramusColors.secondaryText,
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 label: 'Profil',
               ),
@@ -477,8 +484,8 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
           MaterialPageRoute(builder: (_) => const PublishScreen()),
         );
       },
-      backgroundColor: DramusColors.primaryTeal,
-      foregroundColor: DramusColors.white,
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      foregroundColor: Colors.white,
       icon: const Icon(Icons.add_circle_outline),
       label: const Text('Publier'),
     );

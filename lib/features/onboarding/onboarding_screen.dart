@@ -25,7 +25,7 @@ class OnboardingScreen extends StatelessWidget {
           'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=1000&auto=format&fit=crop',
     ),
     OnboardingPageData(
-      title: 'Discutez directement avec les annonceurs',
+      title: 'Discutez directement avec les annonceurs ou clients',
       description:
           'Contactez rapidement les agences, agents et particuliers grâce à la messagerie DRAMUS.',
       imageUrl:
@@ -38,7 +38,7 @@ class OnboardingScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => OnboardingProvider(),
       child: Scaffold(
-        backgroundColor: DramusColors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: Consumer<OnboardingProvider>(
             builder: (context, provider, _) {
@@ -121,7 +121,7 @@ class OnboardingScreen extends StatelessWidget {
             height: 4,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: DramusColors.lightGray,
+              color: Theme.of(context).dividerColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -156,7 +156,7 @@ class OnboardingScreen extends StatelessWidget {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: DramusColors.primaryTeal,
-            foregroundColor: DramusColors.white,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.xl),
@@ -165,7 +165,7 @@ class OnboardingScreen extends StatelessWidget {
           child: Text(
             isLastPage ? 'Commencer' : 'Suivant',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: DramusColors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                   fontWeight: FontWeight.bold,
                 ),
           ),

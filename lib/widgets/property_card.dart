@@ -110,7 +110,7 @@ class _PropertyCardState extends State<PropertyCard> {
                 height: 4,
                 margin: EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: DramusColors.border,
+                  color: Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -196,11 +196,11 @@ class _PropertyCardState extends State<PropertyCard> {
     return GestureDetector(
       onTap: widget.onTap,
       child: Card(
-        color: DramusColors.white,
+        color: Theme.of(context).cardTheme.color,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: const BorderSide(
-            color: DramusColors.border,
+          side: BorderSide(
+            color: Theme.of(context).dividerColor,
             width: 1,
           ),
         ),
@@ -269,8 +269,10 @@ class _PropertyCardState extends State<PropertyCard> {
                             onTap: _toggleFavorite,
                             child: Container(
                               decoration: BoxDecoration(
-                                color:
-                                    DramusColors.white.withValues(alpha: 0.95),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surface
+                                    .withValues(alpha: 0.95),
                                 borderRadius:
                                     BorderRadius.circular(AppRadius.xl),
                               ),
@@ -329,13 +331,16 @@ class _PropertyCardState extends State<PropertyCard> {
                           onTap: () => _showManagementMenu(context),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: DramusColors.lightGray,
+                              color:
+                                  Theme.of(context).colorScheme.surfaceVariant,
                               borderRadius: BorderRadius.circular(AppRadius.xl),
                             ),
                             padding: AppSpacing.paddingSm,
                             child: Icon(
                               Icons.more_vert,
-                              color: DramusColors.secondaryText,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                               size: 20,
                             ),
                           ),
@@ -389,7 +394,6 @@ class _PropertyCardState extends State<PropertyCard> {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: DramusColors.darkText,
                         ),
                   ),
                   SizedBox(height: AppSpacing.xs),

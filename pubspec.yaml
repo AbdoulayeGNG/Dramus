@@ -25,6 +25,7 @@ dependencies:
   url_launcher: ^6.3.0
   flutter_svg: ^2.0.10
   shimmer: ^3.0.0
+  socket_io_client: ^3.0.0
   # Déjà installées
   
   # Nouvelles dépendances

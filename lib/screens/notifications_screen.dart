@@ -25,17 +25,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Notifications',
-          style: TextStyle(
-            color: DramusColors.darkText,
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).appBarTheme.foregroundColor,
+                fontWeight: FontWeight.bold,
+              ),
         ),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 1,
         actions: [
           IconButton(
@@ -62,13 +62,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 children: [
                   Icon(Icons.notifications_off_outlined,
                       size: 64,
-                      color: DramusColors.secondaryText.withOpacity(0.5)),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Aucune notification',
                     style: TextStyle(
                       fontSize: 18,
-                      color: DramusColors.secondaryText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -114,12 +117,12 @@ class NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: notification.isRead
-          ? DramusColors.white
-          : DramusColors.primaryTeal.withOpacity(0.05),
+      color: notification.read
+          ? Theme.of(context).colorScheme.surface
+          : Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
       child: InkWell(
         onTap: () {
-          if (!notification.isRead) {
+          if (!notification.read) {
             Provider.of<NotificationService>(context, listen: false)
                 .markAsRead(notification.id);
           }
@@ -133,12 +136,15 @@ class NotificationTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: DramusColors.primaryTeal.withOpacity(0.1),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.notifications_active_outlined,
-                  color: DramusColors.primaryTeal,
+                  color: Theme.of(context).colorScheme.primary,
                   size: 20,
                 ),
               ),
@@ -150,7 +156,7 @@ class NotificationTile extends StatelessWidget {
                     Text(
                       notification.title,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontWeight: notification.isRead
+                            fontWeight: notification.read
                                 ? FontWeight.normal
                                 : FontWeight.bold,
                           ),
@@ -159,7 +165,8 @@ class NotificationTile extends StatelessWidget {
                     Text(
                       notification.body,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: DramusColors.secondaryText,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                     const SizedBox(height: 8),
@@ -167,14 +174,15 @@ class NotificationTile extends StatelessWidget {
                       DateFormat('dd/MM/yyyy HH:mm', 'fr')
                           .format(notification.createdAt),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: DramusColors.secondaryText,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                     ),
                   ],
                 ),
               ),
-              if (!notification.isRead)
+              if (!notification.read)
                 Container(
                   width: 8,
                   height: 8,

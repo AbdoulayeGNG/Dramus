@@ -16,7 +16,9 @@ class HeaderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: isDark ? DramusColors.darkPetroleum : DramusColors.white,
+      color: isDark
+          ? Theme.of(context).colorScheme.primary
+          : Theme.of(context).colorScheme.surface,
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.xl,
@@ -27,7 +29,9 @@ class HeaderSection extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: isDark ? DramusColors.white : DramusColors.darkText,
+                  color: isDark
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
           ),
@@ -37,8 +41,11 @@ class HeaderSection extends StatelessWidget {
               subtitle!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: isDark
-                        ? DramusColors.lightGray
-                        : DramusColors.secondaryText,
+                        ? Theme.of(context)
+                            .colorScheme
+                            .onPrimary
+                            .withValues(alpha: 0.8)
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
           ],

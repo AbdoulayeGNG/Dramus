@@ -35,18 +35,17 @@ class _AboutScreenState extends State<AboutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'À propos',
           style: TextStyle(
-            color: DramusColors.darkText,
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
-        elevation: 1,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -60,7 +59,7 @@ class _AboutScreenState extends State<AboutScreen> {
               'DRAMUS',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: DramusColors.darkPetroleum,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -79,50 +78,15 @@ class _AboutScreenState extends State<AboutScreen> {
                   ),
             ),
             const SizedBox(height: AppSpacing.xxl),
-            const Text(
+            Text(
               'Dramus est la plateforme de référence pour l\'immobilier de prestige. '
               'Nous connectons les agences, les propriétaires et les clients à la recherche '
               'de biens d\'exception.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: DramusColors.darkText,
+                color: Theme.of(context).colorScheme.onSurface,
                 height: 1.5,
               ),
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            _buildSection(
-              context,
-              title: 'Mentions légales',
-              children: [
-                _buildLinkItem(context, 'Conditions générales d\'utilisation',
-                    () {
-                  // TODO: Navigation vers CGU
-                }),
-                _buildDivider(),
-                _buildLinkItem(context, 'Politique de confidentialité', () {
-                  // TODO: Navigation vers Politique de confidentialité
-                }),
-                _buildDivider(),
-                _buildLinkItem(context, 'Licences open source', () {
-                  showLicensePage(
-                    context: context,
-                    applicationName: 'DRAMUS',
-                    applicationVersion: '$_version',
-                    applicationIcon: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: DramusColors.primaryTeal,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.home, color: Colors.white),
-                      ),
-                    ),
-                  );
-                }),
-              ],
             ),
             const SizedBox(height: AppSpacing.xxl),
             _buildSection(
@@ -140,7 +104,7 @@ class _AboutScreenState extends State<AboutScreen> {
             Text(
               '© ${DateTime.now().year} Dramus Inc. Tous droits réservés.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: DramusColors.secondaryText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
             const SizedBox(height: AppSpacing.xxl),
@@ -195,46 +159,15 @@ class _AboutScreenState extends State<AboutScreen> {
         ),
         Container(
           decoration: BoxDecoration(
-            color: DramusColors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: DramusColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Column(
             children: children,
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildLinkItem(
-      BuildContext context, String title, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: DramusColors.darkText,
-                ),
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: DramusColors.secondaryText,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -253,16 +186,16 @@ class _AboutScreenState extends State<AboutScreen> {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w500,
-                  color: DramusColors.darkText,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
-            const Icon(
+            Icon(
               Icons.open_in_new,
               size: 16,
-              color: DramusColors.secondaryText,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ],
         ),

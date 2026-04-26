@@ -49,15 +49,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final authController = context.read<AuthController>();
     final user = authController.user;
 
-    // Charger les données seulement si elles ne sont pas déjà en cache
-    if (!listingService.isLoaded) {
-      final role = user!.role.toLowerCase();
-      if (role == 'agence' || role == 'agency') {
-        await listingService.getAgencyListings(user.id);
-      } else {
-        // Pour particuliers et agents
-        await listingService.getUserListings(user.id);
-      }
+    final role = user!.role.toLowerCase();
+    if (role == 'agence' || role == 'agency') {
+      await listingService.getAgencyListings(user.id);
+    } else {
+      // Pour particuliers et agents
+      await listingService.getUserListings(user.id);
     }
 
     List<Property> properties = listingService.cachedListings;
@@ -119,10 +116,10 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               return Text(
                 titleText,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: DramusColors.darkText,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24),
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold, fontSize: 24),
               );
             },
           ),
@@ -146,10 +143,10 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               return Text(
                 subtitleText,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: DramusColors.darkText,
-                    fontWeight: FontWeight.w100,
-                    fontSize: 12),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(fontWeight: FontWeight.w100, fontSize: 12),
               );
             },
           ),

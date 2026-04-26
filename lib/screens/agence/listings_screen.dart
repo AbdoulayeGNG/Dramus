@@ -35,15 +35,12 @@ class _ListingsScreenState extends State<ListingsScreen> {
       final listingService = context.read<ListingService>();
       final authController = context.read<AuthController>();
       final user = authController.user;
-      // Charger les données seulement si elles ne sont pas déjà en cache
-      if (!listingService.isLoaded) {
-        final role = user!.role.toLowerCase();
-        if (role == 'agence' || role == 'agency') {
-          await listingService.getAgencyListings(user.id);
-        } else {
-          // Pour particuliers et agents
-          await listingService.getUserListings(user.id);
-        }
+      final role = user!.role.toLowerCase();
+      if (role == 'agence' || role == 'agency') {
+        await listingService.getAgencyListings(user.id);
+      } else {
+        // Pour particuliers et agents
+        await listingService.getUserListings(user.id);
       }
       _applyFilters();
       if (mounted) {
@@ -108,23 +105,10 @@ class _ListingsScreenState extends State<ListingsScreen> {
             child: TextField(
               controller: _searchController,
               onChanged: (_) => _applyFilters(),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Rechercher par titre ou localisation',
                 prefixIcon: Icon(
                   Icons.search,
-                  color: DramusColors.secondaryText,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  borderSide: const BorderSide(
-                    color: DramusColors.border,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  borderSide: const BorderSide(
-                    color: DramusColors.border,
-                  ),
                 ),
               ),
             ),
@@ -349,7 +333,8 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     if (_property == null) {
       return Scaffold(
         appBar: AppBar(
-          backgroundColor: DramusColors.darkPetroleum,
+          backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+          foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
           elevation: 0,
         ),
         body: const Center(
@@ -360,7 +345,8 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: DramusColors.darkPetroleum,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -442,9 +428,10 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                 height: 300,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                 ),
-                child: Icon(Icons.home, size: 100, color: Colors.grey[400]),
+                child: Icon(Icons.home,
+                    size: 100, color: Theme.of(context).colorScheme.outline),
               ),
         if (property.images.length > 1)
           Container(
@@ -470,7 +457,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                       border: Border.all(
                         color: isSelected
                             ? DramusColors.primaryTeal
-                            : DramusColors.border,
+                            : Theme.of(context).dividerColor,
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -555,7 +542,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
     return Container(
       padding: AppSpacing.paddingMd,
       decoration: BoxDecoration(
-        color: DramusColors.lightBackground,
+        color: Theme.of(context).colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Column(
@@ -611,9 +598,9 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
         Container(
           padding: AppSpacing.paddingMd,
           decoration: BoxDecoration(
-            color: DramusColors.lightBackground,
+            color: Theme.of(context).colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: DramusColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -70,14 +70,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
       appBar: AppBar(
         title: const Text(
           'Centre d\'aide',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkPetroleum,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -107,7 +104,6 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      color: DramusColors.white,
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xl),
       child: Column(
@@ -117,23 +113,25 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: DramusColors.darkPetroleum,
                 ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Container(
             decoration: BoxDecoration(
-              color: DramusColors.lightBackground,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(color: DramusColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: TextField(
               controller: _searchController,
               onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Rechercher une question...',
-                prefixIcon:
-                    Icon(Icons.search, color: DramusColors.secondaryText),
+                prefixIcon: Icon(Icons.search,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(vertical: 15),
               ),
@@ -180,7 +178,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
-            side: const BorderSide(color: DramusColors.border),
+            side: BorderSide(color: Theme.of(context).dividerColor),
           ),
           child: InkWell(
             onTap: () {
@@ -197,8 +195,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                   const SizedBox(width: AppSpacing.sm),
                   Text(
                     cat['label'] as String,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                 ],
               ),
@@ -249,30 +248,28 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       decoration: BoxDecoration(
-        color: DramusColors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: DramusColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           title: Text(
             question,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: DramusColors.darkPetroleum,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
           ),
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Text(
                 answer,
-                style: const TextStyle(
-                  color: DramusColors.secondaryText,
-                  height: 1.5,
-                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
               ),
             ),
           ],
@@ -286,15 +283,18 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [DramusColors.darkPetroleum, DramusColors.primaryTeal],
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: [
           BoxShadow(
-            color: DramusColors.primaryTeal.withOpacity(0.3),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -302,21 +302,27 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       ),
       child: Column(
         children: [
-          const Icon(Icons.support_agent, size: 50, color: Colors.white),
+          Icon(Icons.support_agent,
+              size: 50, color: Theme.of(context).colorScheme.onPrimary),
           const SizedBox(height: AppSpacing.md),
-          const Text(
+          Text(
             'Pas trouvé de réponse ?',
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 18,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
-          const Text(
+          Text(
             'Notre équipe support est disponible 24/7 pour vous accompagner.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onPrimary
+                    .withValues(alpha: 0.7),
+                fontSize: 13),
           ),
           const SizedBox(height: AppSpacing.xl),
           Row(
@@ -359,10 +365,16 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        backgroundColor: isPrimary ? Colors.white : Colors.transparent,
-        foregroundColor: isPrimary ? DramusColors.darkPetroleum : Colors.white,
+        backgroundColor: isPrimary
+            ? Theme.of(context).colorScheme.onPrimary
+            : Colors.transparent,
+        foregroundColor: isPrimary
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.onPrimary,
         elevation: 0,
-        side: isPrimary ? null : const BorderSide(color: Colors.white),
+        side: isPrimary
+            ? null
+            : BorderSide(color: Theme.of(context).colorScheme.onPrimary),
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),

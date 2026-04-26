@@ -64,6 +64,7 @@ class DramusColors {
   static const Color rentYellow = Color(0xFFF3C27B);
   static const Color notificationRed = Color(0xFFE85E5B);
   static const Color notificationGreen = Color(0xFF4CAF50);
+  static const Color statusBlue = Color(0xFF34B7F1);
 
   // Neutral Colors
   static const Color lightBackground = Color(0xFFF8F9FB);
@@ -137,6 +138,7 @@ ThemeData get lightTheme => ThemeData(
         ),
       ),
       textTheme: _buildTextTheme(),
+      inputDecorationTheme: _buildInputDecorationTheme(DramusColors.lightGray),
     );
 
 ThemeData get darkTheme => ThemeData(
@@ -171,7 +173,7 @@ ThemeData get darkTheme => ThemeData(
         scrolledUnderElevation: 0,
       ),
       cardTheme: CardThemeData(
-        color: Color(0xFF1E1E1E),
+        color: const Color(0xFF1E1E1E),
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -179,6 +181,7 @@ ThemeData get darkTheme => ThemeData(
         ),
       ),
       textTheme: _buildTextTheme(),
+      inputDecorationTheme: _buildInputDecorationTheme(const Color(0xFF2A2A2A)),
     );
 
 TextTheme _buildTextTheme() {
@@ -251,5 +254,32 @@ TextTheme _buildTextTheme() {
       fontWeight: FontWeight.w400,
       letterSpacing: 0.4,
     ),
+  );
+}
+
+InputDecorationTheme _buildInputDecorationTheme(Color fillColor) {
+  return InputDecorationTheme(
+    filled: true,
+    fillColor: fillColor,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderSide: const BorderSide(color: DramusColors.primaryTeal, width: 2),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderSide:
+          const BorderSide(color: DramusColors.notificationRed, width: 1),
+    ),
+    contentPadding: AppSpacing.paddingMd,
+    labelStyle: const TextStyle(fontSize: 14),
+    hintStyle: const TextStyle(fontSize: 14),
   );
 }

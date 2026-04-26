@@ -7,18 +7,17 @@ class HelpCenterScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DramusColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'Centre d\'aide',
           style: TextStyle(
-            color: DramusColors.darkText,
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
-        elevation: 1,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -31,7 +30,7 @@ class HelpCenterScreen extends StatelessWidget {
               'Questions fréquentes',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: DramusColors.darkPetroleum,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
             ),
             SizedBox(height: AppSpacing.md),
@@ -65,22 +64,23 @@ class HelpCenterScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       decoration: BoxDecoration(
-        color: DramusColors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: DramusColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: const TextField(
+      child: TextField(
         decoration: InputDecoration(
           hintText: 'Rechercher une solution...',
           border: InputBorder.none,
-          icon: Icon(Icons.search, color: DramusColors.secondaryText),
+          icon: Icon(Icons.search,
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ),
     );
@@ -92,14 +92,13 @@ class HelpCenterScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
-        side: const BorderSide(color: DramusColors.border),
+        side: BorderSide(color: Theme.of(context).dividerColor),
       ),
       child: ExpansionTile(
         title: Text(
           question,
           style: const TextStyle(
             fontWeight: FontWeight.w600,
-            color: DramusColors.darkText,
           ),
         ),
         children: [
@@ -112,7 +111,8 @@ class HelpCenterScreen extends StatelessWidget {
             ),
             child: Text(
               answer,
-              style: const TextStyle(color: DramusColors.secondaryText),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
         ],
@@ -139,10 +139,11 @@ class HelpCenterScreen extends StatelessWidget {
                 ),
           ),
           SizedBox(height: AppSpacing.sm),
-          const Text(
+          Text(
             'Notre équipe est là pour vous aider du Lundi au Vendredi, de 9h à 18h.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: DramusColors.secondaryText),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           SizedBox(height: AppSpacing.lg),
           ElevatedButton(

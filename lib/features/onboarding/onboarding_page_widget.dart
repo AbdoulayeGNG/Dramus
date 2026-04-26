@@ -15,6 +15,7 @@ class OnboardingPageWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Image - Prend la majorité de l'espace sur les grands écrans
           Expanded(
             flex: 5,
             child: Container(
@@ -34,7 +35,7 @@ class OnboardingPageWidget extends StatelessWidget {
                 fit: BoxFit.cover,
                 width: double.infinity,
                 placeholder: (context, url) => Container(
-                  color: DramusColors.lightGray,
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                   child: const Center(
                     child: CircularProgressIndicator(
                       color: DramusColors.primaryTeal,
@@ -43,36 +44,45 @@ class OnboardingPageWidget extends StatelessWidget {
                   ),
                 ),
                 errorWidget: (context, url, error) => Container(
-                  color: DramusColors.lightGray,
-                  child: const Icon(Icons.broken_image,
-                      size: 50, color: DramusColors.secondaryText),
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  child: Icon(Icons.broken_image,
+                      size: 50, color: Theme.of(context).disabledColor),
                 ),
               ),
             ),
           ),
-          SizedBox(height: AppSpacing.xxl),
+          SizedBox(height: AppSpacing.lg),
+          // Texte - Scrollable sur les petits écrans pour éviter l'overflow
           Expanded(
-            flex: 3,
-            child: Column(
-              children: [
-                Text(
-                  data.title,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: DramusColors.darkPetroleum,
-                      ),
+            flex: 4,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      data.title,
+                      textAlign: TextAlign.center,
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24, // Taille fixe raisonnable
+                              ),
+                    ),
+                    SizedBox(height: AppSpacing.md),
+                    Text(
+                      data.description,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: DramusColors.secondaryText,
+                            height: 1.5,
+                          ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: AppSpacing.md),
-                Text(
-                  data.description,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: DramusColors.secondaryText,
-                        height: 1.5,
-                      ),
-                ),
-              ],
+              ),
             ),
           ),
         ],

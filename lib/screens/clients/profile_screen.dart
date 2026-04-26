@@ -9,6 +9,12 @@ import 'package:dramus/services/auth_service.dart';
 import 'package:dramus/screens/clients/favorites_screen.dart';
 import 'package:dramus/screens/clients/help_center_screen.dart';
 import 'package:dramus/screens/clients/about_screen.dart';
+import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/services/message_service.dart';
+import 'package:dramus/services/favorites_service.dart';
+import 'package:dramus/services/agent_service.dart';
+import 'package:dramus/services/notification_service.dart';
+import 'package:dramus/core/state/theme_controller.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -42,9 +48,9 @@ class ProfileScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'Déconnexion',
-              style: TextStyle(color: DramusColors.notificationRed),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],
@@ -52,7 +58,29 @@ class ProfileScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
+      // Réinitialiser tous les services avant la déconnexion locale
+      if (context.mounted) {
+        try {
+          context.read<ListingService>().reset();
+          context.read<FavoritesService>().clearFavorites();
+          context.read<MessageService>().clear();
+          context.read<AgentService>().clear();
+
+          // NotificationService peut parfois être en cours d'initialisation
+          try {
+            final notifs = context.read<NotificationService>();
+            notifs.unregisterToken();
+            notifs.reset();
+          } catch (e) {
+            debugPrint('Could not reset NotificationService: $e');
+          }
+        } catch (e) {
+          debugPrint('Error during services reset: $e');
+        }
+      }
+
       await authController.signOut();
+
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -98,7 +126,7 @@ class ProfileScreen extends StatelessWidget {
   Widget _buildProfileHeader(BuildContext context, User user) {
     return Container(
       width: double.infinity,
-      color: DramusColors.darkPetroleum,
+      color: Theme.of(context).colorScheme.primary,
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.xxl,
@@ -107,16 +135,17 @@ class ProfileScreen extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundColor: DramusColors.primaryTeal,
+            backgroundColor:
+                Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.1),
             backgroundImage:
                 user.avatar.isNotEmpty ? NetworkImage(user.avatar) : null,
             child: user.avatar.isEmpty
                 ? Text(
                     user.initials,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: DramusColors.white,
+                      color: Theme.of(context).colorScheme.onPrimary,
                     ),
                   )
                 : null,
@@ -126,7 +155,7 @@ class ProfileScreen extends StatelessWidget {
             user.fullName,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: DramusColors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                   fontWeight: FontWeight.bold,
                 ),
           ),
@@ -137,13 +166,16 @@ class ProfileScreen extends StatelessWidget {
               vertical: AppSpacing.xs,
             ),
             decoration: BoxDecoration(
-              color: DramusColors.primaryTeal,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onPrimary
+                  .withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: Text(
               _getRoleLabel(user.role),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: DramusColors.white,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     fontWeight: FontWeight.bold,
                   ),
             ),
@@ -193,13 +225,13 @@ class ProfileScreen extends StatelessWidget {
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        side: const BorderSide(color: DramusColors.border),
+        side: BorderSide(color: Theme.of(context).dividerColor),
       ),
       child: Padding(
         padding: AppSpacing.paddingMd,
         child: Row(
           children: [
-            Icon(icon, color: DramusColors.primaryTeal),
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
             SizedBox(width: AppSpacing.lg),
             Expanded(
               child: Column(
@@ -208,7 +240,7 @@ class ProfileScreen extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: DramusColors.secondaryText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                   ),
@@ -253,20 +285,6 @@ class ProfileScreen extends StatelessWidget {
         SizedBox(height: AppSpacing.md),
         _buildMenuItem(
           context,
-          icon: Icons.home_outlined,
-          label: 'Mes annonces',
-          onTap: () {},
-        ),
-        SizedBox(height: AppSpacing.md),
-        _buildMenuItem(
-          context,
-          icon: Icons.settings_outlined,
-          label: 'Paramètres',
-          onTap: () {},
-        ),
-        SizedBox(height: AppSpacing.md),
-        _buildMenuItem(
-          context,
           icon: Icons.lock_reset_outlined,
           label: 'Modifier le mot de passe',
           onTap: () => _showChangePasswordDialog(context),
@@ -294,6 +312,25 @@ class ProfileScreen extends StatelessWidget {
           },
         ),
         SizedBox(height: AppSpacing.xxl),
+        Text(
+          'Application',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        SizedBox(height: AppSpacing.lg),
+        Consumer<ThemeController>(
+          builder: (context, themeController, child) {
+            return _buildSwitchItem(
+              context,
+              icon: Icons.dark_mode_outlined,
+              title: 'Mode Sombre',
+              value: themeController.isDarkMode,
+              onChanged: (val) => themeController.toggleDarkMode(val),
+            );
+          },
+        ),
+        SizedBox(height: AppSpacing.xxl),
         CustomButton(
           label: 'Déconnexion',
           onPressed: () => _handleLogout(context, authController),
@@ -313,15 +350,16 @@ class ProfileScreen extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Card(
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: const BorderSide(color: DramusColors.border),
+          side: BorderSide(color: Theme.of(context).dividerColor),
         ),
         child: Padding(
           padding: AppSpacing.paddingMd,
           child: Row(
             children: [
-              Icon(icon, color: DramusColors.primaryTeal),
+              Icon(icon, color: Theme.of(context).colorScheme.primary),
               SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Text(
@@ -334,10 +372,51 @@ class ProfileScreen extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
-                color: DramusColors.secondaryText,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwitchItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        side: BorderSide(color: Theme.of(context).dividerColor),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ),
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: Theme.of(context).colorScheme.primary,
+            ),
+          ],
         ),
       ),
     );
@@ -365,7 +444,6 @@ class ProfileScreen extends StatelessWidget {
             'Modifier le mot de passe',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: DramusColors.darkPetroleum,
                 ),
           ),
           content: SingleChildScrollView(
@@ -377,7 +455,7 @@ class ProfileScreen extends StatelessWidget {
                   Text(
                     'Entrez votre mot de passe actuel et votre nouveau mot de passe.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: DramusColors.secondaryText,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                   ),
                   SizedBox(height: AppSpacing.lg),
@@ -466,7 +544,8 @@ class ProfileScreen extends StatelessWidget {
               onPressed: isLoading ? null : () => Navigator.pop(context),
               child: Text(
                 'Annuler',
-                style: TextStyle(color: DramusColors.secondaryText),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
             ElevatedButton(
@@ -490,8 +569,8 @@ class ProfileScreen extends StatelessWidget {
                                     ? 'Mot de passe mis à jour avec succès !'
                                     : 'Erreur lors de la mise à jour (vérifiez votre mot de passe actuel)'),
                                 backgroundColor: success
-                                    ? DramusColors.saleGreen
-                                    : DramusColors.notificationRed,
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.error,
                               ),
                             );
                           }
@@ -500,7 +579,8 @@ class ProfileScreen extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Une erreur est survenue : $e'),
-                                backgroundColor: DramusColors.notificationRed,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.error,
                               ),
                             );
                           }
@@ -512,19 +592,19 @@ class ProfileScreen extends StatelessWidget {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: DramusColors.primaryTeal,
-                foregroundColor: DramusColors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
               ),
               child: isLoading
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: DramusColors.white,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       ),
                     )
                   : const Text('Valider'),

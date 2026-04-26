@@ -31,6 +31,7 @@ class _PublishScreenState extends State<PublishScreen> {
   ];
   bool _isFormValid = false;
   bool _isLocating = false;
+  bool _isPublishing = false;
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -196,82 +197,85 @@ class _PublishScreenState extends State<PublishScreen> {
                       Expanded(
                         child: CustomButton(
                           label: 'Publier',
+                          isLoading: _isPublishing,
                           onPressed: () async {
                             if (_isFormValid) {
-                              final authController =
-                                  context.read<AuthController>();
-                              final user = authController.user;
-                              if (user == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Utilisateur non connecté'),
-                                    backgroundColor: Colors.red,
+                              setState(() => _isPublishing = true);
+                              try {
+                                final authController =
+                                    context.read<AuthController>();
+                                final user = authController.user;
+                                if (user == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Utilisateur non connecté'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                final property = Property(
+                                  id: '', // Will be set by server
+                                  owner: PropertyOwner(
+                                    id: user.id,
+                                    firstName: user.firstName,
+                                    lastName: user.lastName,
+                                    email: user.email,
+                                    phone: user.phone,
+                                    avatar: user.avatar,
                                   ),
-                                );
-                                return;
-                              }
-
-                              final property = Property(
-                                id: '', // Will be set by server
-                                owner: PropertyOwner(
-                                  id: user.id,
-                                  firstName: user.firstName,
-                                  lastName: user.lastName,
-                                  email: user.email,
-                                  phone: user.phone,
-                                  avatar: user.avatar,
-                                ),
-                                title: _titleController.text,
-                                type: _propertyType,
-                                price: num.tryParse(_priceController.text) ?? 0,
-                                location: PropertyLocation(
-                                  city: _cityController.text,
-                                  district: _districtController.text,
-                                  latitude: double.tryParse(
-                                          _latitudeController.text) ??
-                                      0.0,
-                                  longitude: double.tryParse(
-                                          _longitudeController.text) ??
-                                      0.0,
-                                ),
-                                surface:
-                                    num.tryParse(_areaController.text) ?? 0,
-                                description: _descriptionController.text,
-                                images: [], // Images will be sent as multipart files
-                                status: 'published',
-                                views: 0,
-                              );
-
-                              final listingService =
-                                  context.read<ListingService>();
-
-                              // Debug: Check if user is authenticated
-                              debugPrint(
-                                  'PublishScreen: AuthController user: ${authController.user}');
-                              debugPrint(
-                                  'PublishScreen: Is authenticated: ${authController.user != null}');
-
-                              final success =
-                                  await listingService.createListing(property,
-                                      imageFiles: _selectedImageFiles);
-
-                              if (success) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content:
-                                        Text('Annonce publiée avec succès!'),
-                                    backgroundColor: DramusColors.saleGreen,
+                                  title: _titleController.text,
+                                  type: _propertyType,
+                                  price:
+                                      num.tryParse(_priceController.text) ?? 0,
+                                  location: PropertyLocation(
+                                    city: _cityController.text,
+                                    district: _districtController.text,
+                                    latitude: double.tryParse(
+                                            _latitudeController.text) ??
+                                        0.0,
+                                    longitude: double.tryParse(
+                                            _longitudeController.text) ??
+                                        0.0,
                                   ),
+                                  surface:
+                                      num.tryParse(_areaController.text) ?? 0,
+                                  description: _descriptionController.text,
+                                  images: [], // Images will be sent as multipart files
+                                  status: 'published',
+                                  views: 0,
                                 );
-                                Navigator.pop(context);
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content:
-                                        Text('Erreur lors de la publication'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+
+                                final listingService =
+                                    context.read<ListingService>();
+
+                                final success =
+                                    await listingService.createListing(property,
+                                        imageFiles: _selectedImageFiles);
+
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content:
+                                          Text('Annonce publiée avec succès!'),
+                                      backgroundColor: DramusColors.saleGreen,
+                                    ),
+                                  );
+                                  Navigator.pop(context);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content:
+                                          Text('Erreur lors de la publication'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _isPublishing = false);
+                                }
                               }
                             }
                           },

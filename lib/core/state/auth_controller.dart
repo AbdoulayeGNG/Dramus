@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:dramus/models/user_model.dart';
 import 'package:dramus/core/api/token_storage.dart';
+import 'package:dramus/services/auth_service.dart';
 
 class AuthController extends ChangeNotifier {
   AuthController();
@@ -25,8 +26,13 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    _user = null;
-    await _storage.clear();
-    notifyListeners();
+    try {
+      _user = null;
+      await AuthService.instance.logout();
+    } catch (e) {
+      debugPrint('AuthController.signOut error: $e');
+    } finally {
+      notifyListeners();
+    }
   }
 }

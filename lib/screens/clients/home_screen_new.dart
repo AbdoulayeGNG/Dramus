@@ -28,10 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _isLoading = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final listingService = context.read<ListingService>();
-      // Charger les données seulement si elles ne sont pas déjà en cache
-      if (!listingService.isLoaded) {
-        await listingService.getAllListings();
-      }
+      await listingService.getAllListings();
       // Toujours charger les favoris pour s'assurer que les cœurs sont à jour
       if (mounted) {
         await context.read<FavoritesService>().loadFavorites();
@@ -102,24 +99,24 @@ class _HomeScreenState extends State<HomeScreen> {
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Rechercher par titre ou localisation',
-          hintStyle: const TextStyle(color: Colors.white70),
-          prefixIcon: const Icon(
+          hintStyle: TextStyle(
+            color:
+                Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
+          ),
+          prefixIcon: Icon(
             Icons.search,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.onPrimary,
           ),
           filled: true,
-          fillColor: DramusColors.saleGreen,
+          fillColor:
+              Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.1),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            borderSide: const BorderSide(
-              color: DramusColors.saleGreen,
-            ),
+            borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            borderSide: const BorderSide(
-              color: DramusColors.saleGreen,
-            ),
+            borderSide: BorderSide.none,
           ),
         ),
       ),
@@ -134,8 +131,8 @@ class _HomeScreenState extends State<HomeScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            DramusColors.darkPetroleum,
-            DramusColors.deepTeal,
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.primaryContainer,
           ],
         ),
       ),
@@ -146,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             'Bonjour 👋',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: DramusColors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                   fontWeight: FontWeight.bold,
                 ),
           ),
@@ -154,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             'Trouvez votre bien idéal',
             style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: DramusColors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                   fontWeight: FontWeight.bold,
                 ),
           ),
@@ -162,7 +159,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             'Découvrez les plus belles propriétés de Guinée',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: DramusColors.lightGray,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onPrimary
+                      .withValues(alpha: 0.8),
                 ),
           ),
           SizedBox(height: AppSpacing.xl),
@@ -269,11 +269,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Card(
-        color: DramusColors.white,
+        color: Theme.of(context).colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: const BorderSide(
-            color: DramusColors.border,
+          side: BorderSide(
+            color: Theme.of(context).dividerColor,
             width: 1,
           ),
         ),
@@ -394,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: DramusColors.secondaryText,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
           ],
@@ -434,7 +434,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(
                       Icons.search_off,
                       size: 48,
-                      color: DramusColors.secondaryText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     SizedBox(height: AppSpacing.lg),
                     Text(
@@ -447,7 +447,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       'Essayez d\'ajuster votre recherche',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: DramusColors.secondaryText,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],

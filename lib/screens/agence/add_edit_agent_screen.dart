@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dramus/theme.dart';
+import 'package:dramus/widgets/custom_button.dart';
 import 'package:dramus/services/agent_service.dart';
 import 'package:dramus/models/agent_model.dart';
 
@@ -21,6 +22,7 @@ class _AddEditAgentScreenState extends State<AddEditAgentScreen> {
   late TextEditingController _passwordController;
 
   bool _isLoading = false;
+  bool _isSubmitting = false;
   final List<String> _permissions = [];
 
   final Map<String, String> _availablePermissions = {
@@ -58,7 +60,7 @@ class _AddEditAgentScreenState extends State<AddEditAgentScreen> {
   Future<void> _saveAgent() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isSubmitting = true);
 
     final agentData = AgentModel(
       id: widget.agent?.id ?? '',
@@ -81,7 +83,7 @@ class _AddEditAgentScreenState extends State<AddEditAgentScreen> {
     }
 
     if (!mounted) return;
-    setState(() => _isLoading = false);
+    setState(() => _isSubmitting = false);
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,11 +110,11 @@ class _AddEditAgentScreenState extends State<AddEditAgentScreen> {
     final isEditing = widget.agent != null;
 
     return Scaffold(
-      backgroundColor: DramusColors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(isEditing ? 'Modifier l\'agent' : 'Ajouter un agent'),
-        backgroundColor: DramusColors.white,
-        foregroundColor: DramusColors.darkText,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
       ),
       body: _isLoading
@@ -129,7 +131,7 @@ class _AddEditAgentScreenState extends State<AddEditAgentScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: DramusColors.darkPetroleum,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -215,25 +217,13 @@ class _AddEditAgentScreenState extends State<AddEditAgentScreen> {
                       );
                     }).toList(),
                     const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _saveAgent,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: DramusColors.primaryTeal,
-                          foregroundColor: DramusColors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Text(
-                          isEditing
-                              ? 'Enregistrer les modifications'
-                              : 'Créer l\'agent',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ),
+                    CustomButton(
+                      label: isEditing
+                          ? 'Enregistrer les modifications'
+                          : 'Créer l\'agent',
+                      onPressed: _saveAgent,
+                      isLoading: _isSubmitting,
+                      isFullWidth: true,
                     ),
                   ],
                 ),
@@ -263,21 +253,6 @@ class _AddEditAgentScreenState extends State<AddEditAgentScreen> {
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: DramusColors.lightGray),
-            filled: true,
-            fillColor: DramusColors.lightBackground.withOpacity(0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: DramusColors.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: DramusColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: DramusColors.primaryTeal),
-            ),
           ),
         ),
       ],
