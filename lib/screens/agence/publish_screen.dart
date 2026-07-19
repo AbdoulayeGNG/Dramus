@@ -9,6 +9,7 @@ import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:dramus/models/property_constants.dart';
 
 class PublishScreen extends StatefulWidget {
   const PublishScreen({super.key});
@@ -19,16 +20,7 @@ class PublishScreen extends StatefulWidget {
 
 class _PublishScreenState extends State<PublishScreen> {
   String _propertyType = 'Maison';
-  final List<String> _types = [
-    'Maison',
-    'Appartement',
-    'Terrain',
-    'Bureau',
-    'Chambre',
-    'Magasin',
-    'Villa',
-    'Studio',
-  ];
+  final List<String> _types = PropertyConstants.availableTypes;
   bool _isFormValid = false;
   bool _isLocating = false;
   bool _isPublishing = false;
@@ -40,9 +32,35 @@ class _PublishScreenState extends State<PublishScreen> {
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
   final _priceController = TextEditingController();
-  final _areaController = TextEditingController();
+  final Map<String, TextEditingController> _charControllers = {};
+  final Map<String, bool> _charBools = {};
   List<XFile> _selectedImageFiles = [];
   final ImagePicker _picker = ImagePicker();
+  @override
+  void initState() {
+    super.initState();
+    if (!PropertyConstants.availableTypes.contains(_propertyType)) {
+      _propertyType = PropertyConstants.availableTypes.first;
+    }
+    _buildControllersForType(_propertyType);
+  }
+
+  void _buildControllersForType(String type) {
+    for (var c in _charControllers.values) {
+      c.dispose();
+    }
+    _charControllers.clear();
+    _charBools.clear();
+
+    final configs = PropertyConstants.characteristicsByType[type] ?? [];
+    for (var config in configs) {
+      if (config.type == 'number') {
+        _charControllers[config.key] = TextEditingController();
+      } else if (config.type == 'boolean') {
+        _charBools[config.key] = false;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -53,7 +71,9 @@ class _PublishScreenState extends State<PublishScreen> {
     _latitudeController.dispose();
     _longitudeController.dispose();
     _priceController.dispose();
-    _areaController.dispose();
+    for (var c in _charControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -142,6 +162,18 @@ class _PublishScreenState extends State<PublishScreen> {
   }
 
   void _validateForm() {
+    bool hasRequired = true;
+    final configs =
+        PropertyConstants.characteristicsByType[_propertyType] ?? [];
+    for (var config in configs) {
+      if (config.isRequired && config.type == 'number') {
+        if (_charControllers[config.key]?.text.isEmpty ?? true) {
+          hasRequired = false;
+          break;
+        }
+      }
+    }
+
     setState(() {
       _isFormValid = _titleController.text.isNotEmpty &&
           _descriptionController.text.isNotEmpty &&
@@ -150,8 +182,8 @@ class _PublishScreenState extends State<PublishScreen> {
           _latitudeController.text.isNotEmpty &&
           _longitudeController.text.isNotEmpty &&
           _priceController.text.isNotEmpty &&
-          _areaController.text.isNotEmpty &&
-          _selectedImageFiles.isNotEmpty;
+          _selectedImageFiles.isNotEmpty &&
+          hasRequired;
     });
   }
 
@@ -179,6 +211,8 @@ class _PublishScreenState extends State<PublishScreen> {
                   _buildPropertyTypeSection(),
                   SizedBox(height: AppSpacing.xxl),
                   _buildPropertyDetailsSection(),
+                  SizedBox(height: AppSpacing.xxl),
+                  _buildCharacteristicsSection(),
                   SizedBox(height: AppSpacing.xxl),
                   _buildDescriptionSection(),
                   SizedBox(height: AppSpacing.xxl),
@@ -239,8 +273,30 @@ class _PublishScreenState extends State<PublishScreen> {
                                             _longitudeController.text) ??
                                         0.0,
                                   ),
-                                  surface:
-                                      num.tryParse(_areaController.text) ?? 0,
+                                  caracteristiques: (() {
+                                    final caracData = <String, dynamic>{};
+                                    final configs =
+                                        PropertyConstants.characteristicsByType[
+                                                _propertyType] ??
+                                            [];
+                                    for (var config in configs) {
+                                      if (config.type == 'number') {
+                                        if (_charControllers[config.key]
+                                                ?.text
+                                                .isNotEmpty ??
+                                            false) {
+                                          caracData[config.key] = num.tryParse(
+                                                  _charControllers[config.key]!
+                                                      .text) ??
+                                              0;
+                                        }
+                                      } else if (config.type == 'boolean') {
+                                        caracData[config.key] =
+                                            _charBools[config.key] ?? false;
+                                      }
+                                    }
+                                    return caracData;
+                                  })(),
                                   description: _descriptionController.text,
                                   images: [], // Images will be sent as multipart files
                                   status: 'published',
@@ -314,7 +370,10 @@ class _PublishScreenState extends State<PublishScreen> {
           }).toList(),
           onChanged: (value) {
             if (value != null) {
-              setState(() => _propertyType = value);
+              setState(() {
+                _propertyType = value;
+                _buildControllersForType(value);
+              });
               _validateForm();
             }
           },
@@ -431,13 +490,67 @@ class _PublishScreenState extends State<PublishScreen> {
           'Ex: 850000',
           keyboardType: TextInputType.number,
         ),
-        SizedBox(height: AppSpacing.lg),
-        _buildTextField(
-          'Surface (m²)',
-          _areaController,
-          'Ex: 180',
-          keyboardType: TextInputType.number,
+      ],
+    );
+  }
+
+  Widget _buildCharacteristicsSection() {
+    final configs =
+        PropertyConstants.characteristicsByType[_propertyType] ?? [];
+    if (configs.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Caractéristiques',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
         ),
+        SizedBox(height: AppSpacing.lg),
+        ...configs.map((config) {
+          if (config.type == 'number') {
+            return Padding(
+              padding: EdgeInsets.only(bottom: AppSpacing.lg),
+              child: _buildTextField(
+                '${config.label} ${config.isRequired ? '*' : ''}',
+                _charControllers[config.key]!,
+                'Ex: 5',
+                keyboardType: TextInputType.number,
+              ),
+            );
+          } else if (config.type == 'boolean') {
+            return Padding(
+              padding: EdgeInsets.only(bottom: AppSpacing.lg),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: DramusColors.border),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                ),
+                child: CheckboxListTile(
+                  title: Text(config.label,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  secondary: Icon(PropertyConstants.getIcon(config.icon),
+                      color: DramusColors.primaryTeal),
+                  value: _charBools[config.key] ?? false,
+                  onChanged: (bool? val) {
+                    setState(() {
+                      _charBools[config.key] = val ?? false;
+                    });
+                    _validateForm();
+                  },
+                  activeColor: DramusColors.primaryTeal,
+                  controlAffinity: ListTileControlAffinity.trailing,
+                ),
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }).toList(),
       ],
     );
   }

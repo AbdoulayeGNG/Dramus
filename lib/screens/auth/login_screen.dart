@@ -3,11 +3,14 @@ import 'package:dio/dio.dart';
 import 'package:provider/provider.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/services/auth_service.dart';
+import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/services/message_service.dart';
 import 'package:dramus/services/user_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/screens/auth/register_screen.dart';
 import 'package:dramus/screens/clients/main_app_screen.dart';
 import 'package:dramus/screens/agence/main_app_screen.dart';
+import 'package:dramus/screens/admin_screen.dart';
 import 'package:dramus/screens/auth/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,14 +22,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneCtl = TextEditingController();
+  final _identifierCtl = TextEditingController();
   final _passwordCtl = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
 
   @override
   void dispose() {
-    _phoneCtl.dispose();
+    _identifierCtl.dispose();
     _passwordCtl.dispose();
     super.dispose();
   }
@@ -36,9 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final phone = _phoneCtl.text.trim();
+      final identifier = _identifierCtl.text.trim();
       final password = _passwordCtl.text;
-      final user = await AuthService.instance.login(phone, password);
+      final user = await AuthService.instance.login(identifier, password);
 
       if (user != null) {
         if (!mounted) return;
@@ -52,14 +55,46 @@ class _LoginScreenState extends State<LoginScreen> {
         final userService = Provider.of<UserService>(context, listen: false);
         userService.updateCurrentUser(user);
 
+        // Recharger les annonces pour l'utilisateur connecté
+        final listingService =
+            Provider.of<ListingService>(context, listen: false);
+        try {
+          await listingService.refreshListings(user: user);
+        } catch (e) {
+          debugPrint('LoginScreen: Erreur rechargement annonces: $e');
+        }
+
         // Navigate based on role
-        if (user.role.toLowerCase() == 'client') {
+        final role = user.role.toLowerCase();
+        final messageService =
+            Provider.of<MessageService>(context, listen: false);
+        final pending = messageService.pendingConversationId;
+
+        if (role == 'client') {
           // Clients utilisent l'interface client
+          if (pending != null) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => MainAppScreen(
+                  initialTabIndex: 3,
+                  selectedConversationId: pending,
+                  propertyId: messageService.pendingPropertyId,
+                  ownerName: messageService.pendingOwnerName,
+                  prefilledMessage: messageService.pendingPrefilledMessage,
+                ),
+              ),
+            );
+            messageService.clearPendingConversation();
+          } else {
+            Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const MainAppScreen()));
+          }
+        } else if (role == 'admin') {
+          // Administrateurs
           Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const MainAppScreen()));
+              MaterialPageRoute(builder: (_) => const AdminScreen()));
         } else {
           // Particuliers, agents et agences utilisent l'interface agence
-          print("Le role est : " + user.role.toLowerCase());
           Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const MainAppScreenAgence()));
         }
@@ -112,7 +147,14 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: AppSpacing.md),
-                Expanded(child: Text(errorMessage)),
+                Expanded(
+                  child: Text(
+                    errorMessage,
+                    softWrap: true,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             backgroundColor: DramusColors.notificationRed,
@@ -134,6 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       // Fond clair de l'application
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -233,20 +276,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         key: _formKey,
                         child: Column(
                           children: [
-                            // Phone
+                            // Email ou Téléphone
                             TextFormField(
-                              controller: _phoneCtl,
-                              keyboardType: TextInputType.phone,
+                              controller: _identifierCtl,
+                              keyboardType: TextInputType.emailAddress,
                               decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.phone_outlined),
-                                labelText: 'Téléphone',
-                                hintText: 'ex: +221 77 123 45 67',
+                                prefixIcon: Icon(Icons.person_outline),
+                                labelText: 'Email ou Téléphone',
+                                hintText: 'ex: dupont@mail.com ou 612345678',
                               ),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty)
-                                  return 'Téléphone requis';
-                                if (v.trim().length < 9)
-                                  return 'Numéro invalide';
+                                  return 'Email ou téléphone requis';
                                 return null;
                               },
                             ),
@@ -378,6 +419,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                           color: DramusColors.deepTeal)),
                                 ),
                               ],
+                            ),
+                            SizedBox(height: AppSpacing.md),
+                            // Continuer en tant qu'invité
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                      builder: (_) => const MainAppScreen()),
+                                );
+                              },
+                              child: Text(
+                                'Continuer en tant qu\'invité',
+                                style: TextStyle(
+                                  color: DramusColors.primaryTeal,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
                         ),

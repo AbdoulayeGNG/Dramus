@@ -12,16 +12,23 @@ class AuthService {
   // singleton instance
   static final AuthService instance = AuthService();
 
-  Future<User?> login(String phone, String password) async {
+  Future<User?> login(String identifier, String password) async {
     try {
-      debugPrint('AuthService.login called with phone: $phone');
+      debugPrint('AuthService.login called with identifier: $identifier');
+
+      // Detect if identifier is a phone number (only digits) or email
+      final bool isPhone = RegExp(r'^[0-9+\s]+$').hasMatch(identifier.trim());
+      final Map<String, dynamic> loginData = {
+        if (isPhone) 'phone': identifier.trim() else 'email': identifier.trim(),
+        'password': password,
+      };
+
       final res = await _dio.post('/api/auth/login',
-          data: {'phone': phone, 'password': password},
+          data: loginData,
           options: Options(headers: {
             'Authorization': null
           })); // Explicitly remove auth header
       debugPrint('AuthService.login response status: ${res.statusCode}');
-      debugPrint('AuthService.login response data: ${res.data}');
 
       // backend wraps payload in { success,message,data: { user, token, refreshToken }}
       final body = res.data as Map<String, dynamic>?;
@@ -116,7 +123,6 @@ class AuthService {
       debugPrint('AuthService.getProfile called');
       final res = await _dio.get('/api/users/me');
       debugPrint('AuthService.getProfile response status: ${res.statusCode}');
-      debugPrint('AuthService.getProfile response data: ${res.data}');
 
       // backend wraps payload in { success,message,data: { user }}
       final body = res.data as Map<String, dynamic>?;
@@ -143,6 +149,48 @@ class AuthService {
         debugPrint(
             'AuthService.getProfile error status: ${e.response?.statusCode}');
       }
+      rethrow;
+    }
+  }
+
+  /// Met à jour le profil utilisateur. Si [avatarFile] est fourni, l'envoie
+  /// en multipart/form-data avec le champ "avatar".
+  Future<User?> updateProfile({
+    required String firstName,
+    required String lastName,
+    required String phone,
+    File? avatarFile,
+  }) async {
+    try {
+      debugPrint('AuthService.updateProfile called');
+      dynamic data;
+      if (avatarFile != null) {
+        final formData = FormData.fromMap({
+          'firstName': firstName,
+          'lastName': lastName,
+          'phone': phone,
+          'avatar': await MultipartFile.fromFile(
+            avatarFile.path,
+            filename: avatarFile.path.split('/').last,
+          ),
+        });
+        data = formData;
+      } else {
+        data = {
+          'firstName': firstName,
+          'lastName': lastName,
+          'phone': phone,
+        };
+      }
+
+      final res = await _dio.put('/api/users/me', data: data);
+      debugPrint('AuthService.updateProfile status: ${res.statusCode}');
+
+      // Refresh profile from server
+      final updated = await getProfile();
+      return updated;
+    } catch (e) {
+      debugPrint('AuthService.updateProfile error: $e');
       rethrow;
     }
   }
@@ -242,16 +290,18 @@ class AuthService {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout([bool skipServerLogout = false]) async {
     try {
       debugPrint('AuthService.logout called');
       // Optionally call logout endpoint on server
-      try {
-        await _dio.post('/api/auth/logout');
-        debugPrint('AuthService.logout: Server logout successful');
-      } catch (e) {
-        debugPrint('AuthService.logout: Server logout failed: $e');
-        // Continue with local logout even if server logout fails
+      if (!skipServerLogout) {
+        try {
+          await _dio.post('/api/auth/logout');
+          debugPrint('AuthService.logout: Server logout successful');
+        } catch (e) {
+          debugPrint('AuthService.logout: Server logout failed: $e');
+          // Continue with local logout even if server logout fails
+        }
       }
 
       // Clear local tokens and user data
@@ -283,6 +333,27 @@ class AuthService {
       return res.statusCode == 200 || res.statusCode == 201;
     } catch (e) {
       debugPrint('AuthService.resetPassword error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteAccount(String password) async {
+    try {
+      debugPrint('AuthService.deleteAccount called');
+      final res = await _dio.delete('/api/users/me', data: {
+        'password': password,
+      });
+      debugPrint('AuthService.deleteAccount status: ${res.statusCode}');
+
+      if (res.statusCode == 200 || res.statusCode == 204) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('AuthService.deleteAccount error: $e');
+      if (e is DioException && e.response != null) {
+        debugPrint('AuthService.deleteAccount details: ${e.response?.data}');
+      }
       return false;
     }
   }

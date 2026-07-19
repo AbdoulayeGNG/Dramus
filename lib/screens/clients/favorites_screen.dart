@@ -6,7 +6,7 @@ import 'package:dramus/services/favorites_service.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/header_section.dart';
 import 'package:dramus/widgets/property_card.dart';
-import 'package:dramus/screens/clients/listings_screen.dart';
+import 'package:dramus/screens/clients/listing_detail_screen.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -102,37 +102,34 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           : RefreshIndicator(
               onRefresh: _loadFavorites,
               color: Theme.of(context).colorScheme.primary,
-              child: SingleChildScrollView(
+              child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    HeaderSection(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: HeaderSection(
                       title: 'Vos coups de cœur',
                       subtitle:
                           '${_favoriteProperties.length} propriétés sauvegardées',
                     ),
-                    SizedBox(height: AppSpacing.lg),
-                    if (_favoriteProperties.isEmpty)
-                      _buildEmptyState()
-                    else
-                      Padding(
-                        padding: AppSpacing.paddingMd,
-                        child: GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount:
-                                MediaQuery.of(context).size.width > 600 ? 2 : 1,
-                            crossAxisSpacing: AppSpacing.lg,
-                            mainAxisSpacing: AppSpacing.lg,
-                            childAspectRatio:
-                                MediaQuery.of(context).size.width > 600
-                                    ? 0.75
-                                    : 0.9,
-                          ),
-                          itemCount: _favoriteProperties.length,
-                          itemBuilder: (context, index) {
+                  ),
+                  if (_favoriteProperties.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildEmptyState(),
+                    )
+                  else
+                    SliverPadding(
+                      padding: AppSpacing.paddingMd,
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount:
+                              MediaQuery.of(context).size.width > 600 ? 2 : 1,
+                          crossAxisSpacing: AppSpacing.lg,
+                          mainAxisSpacing: AppSpacing.lg,
+                          childAspectRatio: 0.75,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
                             final property = _favoriteProperties[index];
 
                             return PropertyCard(
@@ -159,11 +156,14 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                               },
                             );
                           },
+                          childCount: _favoriteProperties.length,
                         ),
                       ),
-                    SizedBox(height: AppSpacing.xxl),
-                  ],
-                ),
+                    ),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: 48),
+                  ),
+                ],
               ),
             ),
     );

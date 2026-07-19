@@ -329,17 +329,9 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
             children: [
               Expanded(
                 child: _buildContactButton(
-                  icon: Icons.message_outlined,
-                  label: 'WhatsApp',
-                  onTap: () => _launchUrl('https://wa.me/224620000000'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _buildContactButton(
                   icon: Icons.email_outlined,
                   label: 'Email',
-                  onTap: () => _launchUrl('mailto:support@dramus.com'),
+                  onTap: () => _launchUrl('mailto:dramus.immo@gmail.com'),
                 ),
               ),
             ],
@@ -348,7 +340,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           _buildContactButton(
             icon: Icons.phone_in_talk_outlined,
             label: 'Appeler le support',
-            onTap: () => _launchUrl('tel:+224620000000'),
+            onTap: () => _launchUrl('tel:+224613013982'),
             isPrimary: false,
           ),
         ],

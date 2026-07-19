@@ -13,15 +13,16 @@ class ApiClient {
   late final Dio dio;
   final TokenStorage _storage = TokenStorage();
   bool _isRefreshing = false;
+  VoidCallback? onAuthFailed;
 
   ApiClient._internal() {
     dio = Dio(
       BaseOptions(
         baseUrl: const String.fromEnvironment('API_BASE_URL',
-            defaultValue: 'https://dramus-api.onrender.com'),
-        connectTimeout: const Duration(seconds: 20),
-        receiveTimeout: const Duration(seconds: 20),
-        sendTimeout: const Duration(seconds: 20),
+            defaultValue: 'https://dramus-api-tkdx.onrender.com'),
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(seconds: 30),
         headers: {'Accept': 'application/json'},
       ),
     );
@@ -53,6 +54,7 @@ class ApiClient {
           if (path.contains('refresh-token') || path.contains('login')) {
             if (path.contains('refresh-token')) {
               await _storage.clear(); // Session expired
+              onAuthFailed?.call();
             }
             return handler.next(e);
           }
@@ -94,10 +96,12 @@ class ApiClient {
             } else {
               // Refresh failed
               await _storage.clear();
+              onAuthFailed?.call();
             }
           } catch (refreshError) {
             _isRefreshing = false;
             await _storage.clear();
+            onAuthFailed?.call();
           }
         }
         return handler.next(e);

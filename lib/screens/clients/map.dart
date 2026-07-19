@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/services/listing_service.dart';
-import 'package:dramus/screens/clients/listings_screen.dart';
+import 'package:dramus/screens/clients/listing_detail_screen.dart';
 import 'package:dramus/models/property.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 
@@ -17,8 +18,10 @@ class ClientsMapScreen extends StatefulWidget {
 
 class _ClientsMapScreenState extends State<ClientsMapScreen> {
   final MapController _mapController = MapController();
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
   String _typeFilter = 'all';
-  double _maxPrice = 10000000;
+  double _maxPrice = 1000000000000; // Illimité par défaut (1 Trillion)
   int? _selectedListingIndex;
   List<Property> _listings = [];
   bool _isLoading = true;
@@ -34,11 +37,22 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
   Future<void> _loadListings() async {
     try {
       final listingService = context.read<ListingService>();
-      print(listingService.cachedListings);
       final authController = context.read<AuthController>();
       final user = authController.user;
-      // Charger les données seulement si elles ne sont pas déjà en cache
-      if (!listingService.isLoaded) {
+
+      String? expectedEndpoint;
+      if (user != null &&
+          (user.role.toLowerCase() == 'particulier' ||
+              user.role.toLowerCase() == 'agent')) {
+        expectedEndpoint = '/api/properties/user/${user.id}';
+      } else {
+        expectedEndpoint = '/api/properties';
+      }
+
+      // Charger les données si le cache est absent ou ne correspond pas à l'utilisateur
+      if (!listingService.isLoaded ||
+          !listingService.isCacheValidFor(expectedEndpoint,
+              targetId: user?.id)) {
         if (user != null &&
             (user.role.toLowerCase() == 'particulier' ||
                 user.role.toLowerCase() == 'agent')) {
@@ -88,13 +102,17 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
     }
 
     final listings = _applyFilters(_listings);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final popupWidth = screenWidth * 0.42;
+    final markerWidth = popupWidth + 20;
+    const markerHeight = 220.0;
 
     final markers = listings.map((property) {
       final index = listings.indexOf(property);
       final isSelected = _selectedListingIndex == index;
       return Marker(
-        width: 180,
-        height: isSelected ? 190 : 48,
+        width: markerWidth,
+        height: isSelected ? markerHeight : 48,
         point: LatLng(property.location.latitude, property.location.longitude),
         builder: (ctx) => Column(
           mainAxisSize: MainAxisSize.min,
@@ -106,8 +124,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                     builder: (_) =>
                         ListingDetailScreen(listingId: property.id))),
                 child: Container(
-                  width: 160,
-                  height: 130,
+                  width: popupWidth,
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
@@ -128,13 +145,13 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                         borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(12)),
                         child: property.images.isNotEmpty
-                            ? Image.network(
-                                property.images.first,
+                            ? CachedNetworkImage(
+                                imageUrl: property.images.first,
                                 height: 70,
-                                width: 160,
+                                width: double.infinity,
                                 fit: BoxFit.cover,
-                                loadingBuilder: (context, child, progress) {
-                                  if (progress == null) return child;
+                                progressIndicatorBuilder:
+                                    (context, url, downloadProgress) {
                                   return Container(
                                     height: 70,
                                     color: Theme.of(context)
@@ -146,6 +163,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                                         height: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
+                                          value: downloadProgress.progress,
                                           color: Theme.of(context)
                                               .colorScheme
                                               .primary,
@@ -154,7 +172,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                                     ),
                                   );
                                 },
-                                errorBuilder: (_, __, ___) => Container(
+                                errorWidget: (_, __, ___) => Container(
                                   height: 70,
                                   color: Theme.of(context)
                                       .colorScheme
@@ -191,6 +209,8 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                             const SizedBox(height: 2),
                             Text(
                               '${(property.price / 1000000).toStringAsFixed(1)}M GNF',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.bold,
@@ -245,11 +265,8 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
           child: FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              center: listings.isNotEmpty
-                  ? LatLng(listings.first.location.latitude,
-                      listings.first.location.longitude)
-                  : LatLng(9.5092, -13.7539),
-              zoom: 12,
+              center: const LatLng(9.5370, -13.6740),
+              zoom: 11.0,
               onTap: (tapPos, latlng) {
                 // Deselect marker when tapping on map background
                 setState(() => _selectedListingIndex = null);
@@ -273,60 +290,79 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
           left: 12,
           right: 12,
           child: Card(
+            elevation: 4,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.md)),
+                borderRadius: BorderRadius.circular(AppRadius.lg)),
             child: Padding(
-              padding: AppSpacing.paddingSm,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
-                  Flexible(
+                  // Filtre Type
+                  Expanded(
                     flex: 2,
-                    child: DropdownButtonFormField<String>(
+                    child: DropdownButton<String>(
                       isExpanded: true,
                       value: _typeFilter,
+                      underline: const SizedBox(),
+                      icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                       items: const [
                         DropdownMenuItem(value: 'all', child: Text('Tous')),
                         DropdownMenuItem(
                             value: 'Maison', child: Text('Maison')),
                         DropdownMenuItem(
-                            value: 'Appartement', child: Text('Appartement')),
+                            value: 'Appartement', child: Text('Appart.')),
                         DropdownMenuItem(
                             value: 'Terrain', child: Text('Terrain')),
+                        DropdownMenuItem(
+                            value: 'Bureau', child: Text('Bureau')),
                       ],
                       onChanged: (v) =>
                           setState(() => _typeFilter = v ?? 'all'),
-                      decoration: const InputDecoration(
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          border:
-                              OutlineInputBorder(borderSide: BorderSide.none)),
                     ),
                   ),
-                  SizedBox(width: AppSpacing.md),
+                  Container(
+                    height: 24,
+                    width: 1,
+                    color: Theme.of(context).dividerColor,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  // Filtre Prix (Slider)
                   Expanded(
                     flex: 3,
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(trackHeight: 2),
-                      child: Slider(
-                        value: _maxPrice.clamp(0, 5000000),
-                        min: 0,
-                        max: 5000000,
-                        divisions: 10,
-                        label: '${(_maxPrice / 1000).round()}K',
-                        onChanged: (v) => setState(() => _maxPrice = v),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: AppSpacing.md),
-                  SizedBox(
-                    width: 96,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary),
-                      onPressed: () => setState(() {}),
-                      child: const Text('Appliquer',
-                          overflow: TextOverflow.ellipsis),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _maxPrice >= 1000000000
+                              ? 'Max: ∞'
+                              : 'Max: ${(_maxPrice / 1000000).toStringAsFixed(0)}M',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 2,
+                            thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 6),
+                            overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 12),
+                          ),
+                          child: Slider(
+                            value: _maxPrice.clamp(0.0, 1000000000.0),
+                            min: 0,
+                            max: 1000000000, // 1 Milliard
+                            divisions: 20,
+                            activeColor: Theme.of(context).colorScheme.primary,
+                            onChanged: (v) => setState(() => _maxPrice = v),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -341,6 +377,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
           child: Container(
             height: MediaQuery.of(context).size.height * 0.6,
             child: DraggableScrollableSheet(
+              controller: _sheetController,
               initialChildSize: 0.4,
               minChildSize: 0.2,
               maxChildSize: 1.0,
@@ -404,13 +441,13 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: property.images.isNotEmpty
-                                ? Image.network(
-                                    property.images.first,
+                                ? CachedNetworkImage(
+                                    imageUrl: property.images.first,
                                     width: 72,
                                     height: 56,
                                     fit: BoxFit.cover,
-                                    loadingBuilder: (context, child, progress) {
-                                      if (progress == null) return child;
+                                    progressIndicatorBuilder:
+                                        (context, url, downloadProgress) {
                                       return Container(
                                         width: 72,
                                         height: 56,
@@ -423,6 +460,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                                             height: 16,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
+                                              value: downloadProgress.progress,
                                               color: Theme.of(context)
                                                   .colorScheme
                                                   .primary,
@@ -431,7 +469,7 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                                         ),
                                       );
                                     },
-                                    errorBuilder: (_, __, ___) => Container(
+                                    errorWidget: (_, __, ___) => Container(
                                       width: 72,
                                       height: 56,
                                       color: Theme.of(context)
@@ -477,9 +515,12 @@ class _ClientsMapScreenState extends State<ClientsMapScreen> {
                           onTap: () {
                             setState(() => _selectedListingIndex = i - 1);
                             _centerOn(property);
-                            Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => ListingDetailScreen(
-                                    listingId: property.id)));
+                            // Réduire la liste pour que l'annonce soit plus visible sur la carte
+                            _sheetController.animateTo(
+                              0.2,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
                           },
                         ),
                       );

@@ -1,16 +1,18 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:dramus/models/user_model.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/services/auth_service.dart';
+import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/services/message_service.dart';
 import 'package:dramus/services/user_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/screens/auth/login_screen.dart';
 import 'package:dramus/screens/clients/main_app_screen.dart';
-import 'package:dramus/screens/agence/main_app_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -106,9 +108,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       debugPrint('Données d\'inscription: $data');
       debugPrint('Avatar présent: ${_avatarFile != null}');
 
+      // L'envoi de l'avatar est différé après l'inscription pour garantir
+      // que les champs texte soient transmis en JSON (/api/auth/signup n'accepte
+      // pas le multipart).
       final resp = await AuthService.instance.register(
         data: data,
-        avatar: _avatarFile,
+        avatar: isAgency ? _avatarFile : null,
         isAgency: isAgency,
       );
 
@@ -120,7 +125,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         // Pour une agence, les tokens sont gérés différemment — rediriger vers login
         if (isAgency) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Compte agence créé, connectez-vous')));
+              content: Text(
+            'Compte agence créé, connectez-vous',
+            softWrap: true,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          )));
           Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const LoginScreen()));
           return;
@@ -144,6 +154,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
           debugPrint('RegisterScreen: Erreur parsing user: $e');
         }
 
+        // Téléversement de l'avatar après inscription (token déjà sauvegardé)
+        if (!isAgency && registeredUser != null && _avatarFile != null) {
+          try {
+            final updatedUser = await AuthService.instance.updateProfile(
+              firstName: _firstNameCtl.text.trim(),
+              lastName: _lastNameCtl.text.trim(),
+              phone: _phoneCtl.text.trim(),
+              avatarFile: _avatarFile,
+            );
+            if (updatedUser != null) {
+              registeredUser = updatedUser;
+            }
+          } catch (e) {
+            debugPrint('RegisterScreen: Échec envoi avatar: $e');
+          }
+        }
+
         if (registeredUser != null) {
           // Mettre à jour AuthController et UserService comme à la connexion
           final authController =
@@ -155,18 +182,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
           // Naviguer selon le rôle
           final role = registeredUser.role.toLowerCase();
+          final messageService =
+              Provider.of<MessageService>(context, listen: false);
+          final listingService =
+              Provider.of<ListingService>(context, listen: false);
+          final pending = messageService.pendingConversationId;
+
           if (role == 'client') {
-            Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const MainAppScreen()));
+            // Recharger les annonces pour le client inscrit
+            try {
+              await listingService.refreshListings(user: registeredUser);
+            } catch (e) {
+              debugPrint('RegisterScreen: Erreur rechargement annonces: $e');
+            }
+            if (pending != null) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => MainAppScreen(
+                    initialTabIndex: 3,
+                    selectedConversationId: pending,
+                    propertyId: messageService.pendingPropertyId,
+                    ownerName: messageService.pendingOwnerName,
+                    prefilledMessage: messageService.pendingPrefilledMessage,
+                  ),
+                ),
+              );
+              messageService.clearPendingConversation();
+            } else {
+              Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const MainAppScreen()));
+            }
           } else {
             // particulier, agent
             Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const MainAppScreenAgence()));
+                MaterialPageRoute(builder: (_) => const LoginScreen()));
           }
         } else {
           // Fallback : pas de user parsé, rediriger vers login
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Inscription réussie, connectez-vous')));
+              content: Text(
+            'Inscription réussie, connectez-vous',
+            softWrap: true,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          )));
           Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const LoginScreen()));
         }
@@ -174,12 +233,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final message = resp.data != null && resp.data['message'] != null
             ? resp.data['message']
             : 'Erreur serveur';
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+          message,
+          softWrap: true,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+        )));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      String errorMessage = 'Une erreur est survenue lors de l\'inscription';
+
+      if (e is DioException) {
+        switch (e.type) {
+          case DioExceptionType.connectionTimeout:
+          case DioExceptionType.sendTimeout:
+          case DioExceptionType.receiveTimeout:
+            errorMessage =
+                'La connexion est trop lente. Vérifiez votre réseau et réessayez.';
+            break;
+          case DioExceptionType.connectionError:
+            errorMessage = 'Veuillez vérifier votre connexion internet.';
+            break;
+          case DioExceptionType.badResponse:
+            final statusCode = e.response?.statusCode;
+            if (statusCode == 400) {
+              errorMessage =
+                  'Certaines informations sont invalides. Veuillez vérifier vos saisies.';
+            } else if (statusCode == 409) {
+              errorMessage =
+                  'Un compte existe déjà avec cet email ou ce téléphone.';
+            } else if (statusCode == 500) {
+              errorMessage =
+                  'Erreur interne du serveur. Veuillez réessayer plus tard.';
+            } else {
+              errorMessage =
+                  'Erreur serveur ($statusCode). Veuillez réessayer.';
+            }
+            break;
+          case DioExceptionType.cancel:
+            errorMessage = 'La requête a été annulée.';
+            break;
+          default:
+            errorMessage = 'Problème de réseau détecté. Veuillez réessayer.';
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+        errorMessage,
+        softWrap: true,
+        maxLines: 4,
+        overflow: TextOverflow.ellipsis,
+      )));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -189,6 +295,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Theme.of(context).appBarTheme.foregroundColor,

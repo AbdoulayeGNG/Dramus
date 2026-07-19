@@ -22,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Property> _properties = [];
   bool _isLoading = true;
+  bool _initialized = false;
 
   @override
   void initState() {
@@ -32,11 +33,32 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _isLoading = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _loadProperties();
+    if (_initialized) return;
+    _initialized = true;
+
+    final listingService = context.read<ListingService>();
+    final authController = context.read<AuthController>();
+    final user = authController.user;
+    final expectedEndpoint = '/api/properties/user/${user!.id}';
+    final hasCache = listingService.isLoaded &&
+        listingService.cachedListings.isNotEmpty &&
+        listingService.isCacheValidFor(expectedEndpoint, targetId: user.id);
+
+    if (hasCache) {
+      _isLoading = false;
       _applyFilters();
-      if (mounted) {
+    } else {
+      _isLoading = true;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!listingService.isLoaded ||
+          !listingService.isCacheValidFor(expectedEndpoint,
+              targetId: user.id)) {
+        await _loadProperties();
+      }
+      _applyFilters();
+      if (mounted && _isLoading) {
         setState(() {
           _isLoading = false;
         });

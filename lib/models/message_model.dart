@@ -104,6 +104,7 @@ class Conversation {
   final String? user2Avatar; // Avatar de l'autre utilisateur
   final Message lastMessage;
   final DateTime updatedAt;
+  final int unreadCount;
 
   Conversation({
     required this.id,
@@ -114,6 +115,7 @@ class Conversation {
     this.user2Avatar,
     required this.lastMessage,
     required this.updatedAt,
+    this.unreadCount = 0,
   });
 
   Conversation copyWith({
@@ -125,6 +127,7 @@ class Conversation {
     String? user2Avatar,
     Message? lastMessage,
     DateTime? updatedAt,
+    int? unreadCount,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -135,6 +138,7 @@ class Conversation {
       user2Avatar: user2Avatar ?? this.user2Avatar,
       lastMessage: lastMessage ?? this.lastMessage,
       updatedAt: updatedAt ?? this.updatedAt,
+      unreadCount: unreadCount ?? this.unreadCount,
     );
   }
 }

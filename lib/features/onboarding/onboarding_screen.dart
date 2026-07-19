@@ -4,7 +4,7 @@ import 'package:dramus/theme.dart';
 import 'package:dramus/features/onboarding/onboarding_provider.dart';
 import 'package:dramus/features/onboarding/onboarding_page_data.dart';
 import 'package:dramus/features/onboarding/onboarding_page_widget.dart';
-import 'package:dramus/screens/auth/login_screen.dart';
+import 'package:dramus/screens/clients/main_app_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -14,22 +14,19 @@ class OnboardingScreen extends StatelessWidget {
       title: 'Trouvez votre bien idéal',
       description:
           'Explorez des maisons, terrains et appartements partout à Conakry en quelques clics.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?q=80&w=1000&auto=format&fit=crop',
+      imageUrl: 'assets/images/onboarding1.jpeg',
     ),
     OnboardingPageData(
       title: 'Achetez ou louez en toute confiance',
       description:
           'Accédez à des annonces fiables, avec photos, localisation et informations détaillées.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=1000&auto=format&fit=crop',
+      imageUrl: 'assets/images/onboarding2.jpeg',
     ),
     OnboardingPageData(
       title: 'Discutez directement avec les annonceurs ou clients',
       description:
           'Contactez rapidement les agences, agents et particuliers grâce à la messagerie DRAMUS.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=1000&auto=format&fit=crop',
+      imageUrl: 'assets/images/onboarding3.jpeg',
     ),
   ];
 
@@ -96,7 +93,7 @@ class OnboardingScreen extends StatelessWidget {
           if (provider.currentIndex < 2)
             TextButton(
               onPressed: () =>
-                  provider.completeOnboarding(context, const LoginScreen()),
+                  provider.completeOnboarding(context, const MainAppScreen()),
               child: Text(
                 'Passer',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -149,7 +146,7 @@ class OnboardingScreen extends StatelessWidget {
         child: ElevatedButton(
           onPressed: () {
             if (isLastPage) {
-              provider.completeOnboarding(context, const LoginScreen());
+              provider.completeOnboarding(context, const MainAppScreen());
             } else {
               provider.nextPage();
             }

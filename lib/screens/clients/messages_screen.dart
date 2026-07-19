@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -41,6 +43,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void initState() {
     super.initState();
+    // Si les conversations ont déjà été chargées, ne pas afficher le loading
+    final messageService = context.read<MessageService>();
+    _isInitialized = messageService.hasInitialLoad ||
+        messageService.conversations.isNotEmpty;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeMessages();
     });
@@ -53,30 +59,62 @@ class _MessagesScreenState extends State<MessagesScreen> {
     super.dispose();
   }
 
-  Future<void> _initializeMessages() async {
-    if (_isInitialized) return;
+  Future<void> _ensurePreselectedConversation(
+      MessageService messageService) async {
+    final preselected = widget.preselectedConversationId;
+    if (preselected == null) return;
 
+    // Si la conversation n'existe pas encore, la créer temporairement
+    final exists = messageService.conversations
+        .any((c) => c.id == preselected || c.userId2 == preselected);
+    if (!exists) {
+      await messageService.startConversation(
+          preselected, widget.ownerName ?? 'Propriétaire');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedConversationId = preselected;
+      if (widget.prefilledMessage != null) {
+        _messageController.text = widget.prefilledMessage!;
+      }
+    });
+
+    messageService.loadConversation(preselected);
+    messageService.setActiveConversation(preselected);
+    widget.onConversationOpened?.call();
+  }
+
+  Future<void> _initializeMessages() async {
     final authController = Provider.of<AuthController>(context, listen: false);
     final messageService = Provider.of<MessageService>(context, listen: false);
 
     if (authController.user != null) {
       messageService.setCurrentUserId(authController.user!.id);
-      await messageService.loadConversations();
 
-      // Si une conversation est pré-sélectionnée, la sélectionner
-      if (widget.preselectedConversationId != null) {
+      final hasData = messageService.conversations.isNotEmpty ||
+          messageService.hasInitialLoad;
+
+      if (hasData) {
+        await _ensurePreselectedConversation(messageService);
+
+        if (!mounted) return;
         setState(() {
-          _selectedConversationId = widget.preselectedConversationId;
-          // Pré-remplir le message si fourni
-          if (widget.prefilledMessage != null) {
-            _messageController.text = widget.prefilledMessage!;
-          }
+          _isInitialized = true;
         });
-        messageService.loadConversation(widget.preselectedConversationId!);
-        // Signaler que la conv pré-sélectionnée a été ouverte
-        widget.onConversationOpened?.call();
+
+        // Rafraîchir en arrière-plan si un chargement n'est pas déjà en cours
+        if (!messageService.isLoading) {
+          unawaited(messageService.loadConversations());
+        }
+        return;
       }
 
+      await messageService.loadConversations();
+
+      await _ensurePreselectedConversation(messageService);
+
+      if (!mounted) return;
       setState(() {
         _isInitialized = true;
       });
@@ -135,6 +173,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Widget _buildMobileLayout(
       BuildContext context, MessageService messageService) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final appBarBackgroundColor =
+        isDark ? theme.appBarTheme.backgroundColor : theme.colorScheme.primary;
+    final appBarForegroundColor = isDark
+        ? theme.appBarTheme.foregroundColor
+        : theme.colorScheme.onPrimary;
+
     if (_selectedConversationId != null) {
       // Chercher la conversation existante
       Conversation? conv;
@@ -175,11 +221,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: appBarBackgroundColor,
+        foregroundColor: appBarForegroundColor,
         title: Text(
           'Messages',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: DramusColors.white,
+                color: appBarForegroundColor,
                 fontWeight: FontWeight.bold,
               ),
         ),
@@ -210,7 +257,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.refresh, color: DramusColors.white),
+            icon: Icon(Icons.refresh, color: appBarForegroundColor),
             onPressed: () => messageService.loadConversations(),
           ),
         ],
@@ -421,16 +468,39 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ),
         const VerticalDivider(width: 1),
         Expanded(
-          child: _selectedConversationId != null &&
-                  messageService.conversations
-                      .any((c) => c.id == _selectedConversationId)
-              ? _buildChatView(
-                  context,
-                  messageService,
-                  messageService.conversations.firstWhere(
-                    (c) => c.id == _selectedConversationId,
-                  ),
-                )
+          child: _selectedConversationId != null
+              ? () {
+                  Conversation? conv;
+                  try {
+                    conv = messageService.conversations.firstWhere(
+                      (c) =>
+                          c.id == _selectedConversationId ||
+                          c.userId2 == _selectedConversationId ||
+                          c.userId1 == _selectedConversationId,
+                    );
+                  } catch (e) {
+                    final authController =
+                        Provider.of<AuthController>(context, listen: false);
+                    conv = Conversation(
+                      id: _selectedConversationId!,
+                      userId1: authController.user?.id ?? '',
+                      user1Name: authController.user?.fullName ?? 'Vous',
+                      userId2: _selectedConversationId!,
+                      user2Name: widget.ownerName ?? 'Propriétaire',
+                      lastMessage: Message(
+                        id: '',
+                        senderId: '',
+                        receiverId: '',
+                        content: '',
+                        propertyId: widget.propertyId,
+                        read: true,
+                        createdAt: DateTime.now(),
+                      ),
+                      updatedAt: DateTime.now(),
+                    );
+                  }
+                  return _buildChatView(context, messageService, conv);
+                }()
               : Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -474,8 +544,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final filteredConversations = _getFilteredConversations(messageService);
     final authController = Provider.of<AuthController>(context, listen: false);
 
-    // État de chargement avec skeleton
-    if (messageService.isLoading && messageService.conversations.isEmpty) {
+    // État de chargement avec skeleton (uniquement au premier chargement)
+    if (!messageService.hasInitialLoad &&
+        messageService.isLoading &&
+        messageService.conversations.isEmpty) {
       return const ConversationSkeleton(itemCount: 6);
     }
 
@@ -510,11 +582,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
           onTap: () async {
             setState(() {
               _selectedConversationId = conv.id;
-              // On peut vider le controller ici ou le garder selon l'UX souhaitée
-              // _messageController.clear();
             });
+            messageService.setActiveConversation(conv.id);
             messageService.loadConversation(conv.id);
-            await messageService.markConversationAsRead(conv.id);
           },
         );
       },
@@ -529,15 +599,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final authController = Provider.of<AuthController>(context, listen: false);
     final currentUserId = authController.user?.id ?? '';
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final appBarBackgroundColor =
+        isDark ? theme.appBarTheme.backgroundColor : theme.colorScheme.primary;
+    final appBarForegroundColor = isDark
+        ? theme.appBarTheme.foregroundColor
+        : theme.colorScheme.onPrimary;
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: appBarBackgroundColor,
+        foregroundColor: appBarForegroundColor,
         leading: MediaQuery.of(context).size.width < 900
             ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: DramusColors.white),
+                icon: Icon(Icons.arrow_back, color: appBarForegroundColor),
                 onPressed: () {
                   setState(() => _selectedConversationId = null);
+                  messageService.setActiveConversation(null);
                 },
               )
             : null,
@@ -548,7 +628,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
             conv.user2Avatar != null && conv.user2Avatar!.isNotEmpty
                 ? CircleAvatar(
                     radius: 20,
-                    backgroundColor: DramusColors.lightGray,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: ClipOval(
                       child: CachedNetworkImage(
                         imageUrl: conv.user2Avatar!,
@@ -558,31 +639,30 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         placeholder: (context, url) => Container(
                           color: Theme.of(context)
                               .colorScheme
-                              .primary
-                              .withValues(alpha: 0.1),
+                              .surfaceContainerHighest,
                           child: Center(
                             child: SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Theme.of(context).colorScheme.onPrimary,
+                                color: appBarForegroundColor,
                               ),
                             ),
                           ),
                         ),
                         errorWidget: (context, url, error) => CircleAvatar(
                           radius: 20,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                           child: Text(
                             _getInitials(conv.user2Name),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(
-                                  color:
-                                      Theme.of(context).colorScheme.onPrimary,
+                                  color: appBarForegroundColor,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
@@ -592,14 +672,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   )
                 : CircleAvatar(
                     radius: 20,
-                    backgroundColor: Theme.of(context)
-                        .colorScheme
-                        .onPrimary
-                        .withValues(alpha: 0.2),
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: Text(
                       _getInitials(conv.user2Name),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onPrimary,
+                            color: appBarForegroundColor,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -615,7 +693,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         ? conv.user2Name
                         : 'Utilisateur inconnu',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimary,
+                          color: appBarForegroundColor,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -627,7 +705,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: DramusColors.white),
+            icon: Icon(Icons.refresh, color: appBarForegroundColor),
             onPressed: () => messageService.loadConversation(conv.id),
           ),
         ],

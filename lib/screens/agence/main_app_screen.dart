@@ -1,6 +1,7 @@
 import 'package:dramus/screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/services/user_service.dart';
 import 'package:dramus/screens/agence/favorites_screen.dart';
@@ -130,7 +131,7 @@ class _MainAppScreenAgenceState extends State<MainAppScreenAgence> {
                     radius: 36,
                     backgroundColor: DramusColors.primaryTeal,
                     backgroundImage: profileImage.isNotEmpty
-                        ? NetworkImage(profileImage) as ImageProvider
+                        ? CachedNetworkImageProvider(profileImage) as ImageProvider
                         : null,
                     child: profileImage.isEmpty
                         ? Text(

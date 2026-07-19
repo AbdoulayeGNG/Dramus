@@ -17,10 +17,19 @@ class ListingService extends ChangeNotifier {
   int _sessionId = 0; // Pour éviter les race conditions lors de la déconnexion
   String? _cachedOwnerId; // Pour identifier à qui appartient ce cache
 
+  // Pagination states
+  int _currentPage = 1;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  String _currentEndpoint = '';
+  String? _cachedEndpoint; // Pour invalider le cache si l'endpoint change
+
   // Getters pour accéder aux données en cache
   List<Property> get cachedListings => _listings;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
   bool get isLoaded => _isLoaded;
+  bool get hasMore => _hasMore;
 
   // Durée de validité du cache (5 minutes)
   static const Duration _cacheValidityDuration = Duration(minutes: 5);
@@ -29,6 +38,18 @@ class ListingService extends ChangeNotifier {
   bool _isCacheValid() {
     if (_lastFetchTime == null) return false;
     return DateTime.now().difference(_lastFetchTime!) < _cacheValidityDuration;
+  }
+
+  bool get isCacheValid => _isCacheValid();
+
+  String? get cachedOwnerId => _cachedOwnerId;
+  String? get cachedEndpoint => _cachedEndpoint;
+
+  /// Vérifie si le cache correspond à l'endpoint et à l'utilisateur cible
+  bool isCacheValidFor(String endpoint, {String? targetId}) {
+    return _isCacheValid() &&
+        _cachedEndpoint == endpoint &&
+        _cachedOwnerId == targetId;
   }
 
   // Forcer le rafraîchissement du cache
@@ -55,6 +76,9 @@ class ListingService extends ChangeNotifier {
     _listings = [];
     _isLoaded = false;
     _lastFetchTime = null;
+    _currentPage = 1;
+    _hasMore = true;
+    _currentEndpoint = '';
     debugPrint('ListingService: Cache invalidated and cleared');
     notifyListeners();
   }
@@ -64,7 +88,9 @@ class ListingService extends ChangeNotifier {
     _sessionId++; // Incrémenter pour ignorer les requêtes en cours
     invalidateCache();
     _cachedOwnerId = null;
+    _cachedEndpoint = null;
     _isLoading = false;
+    _isLoadingMore = false;
   }
 
   Future<Property?> getListingById(String id) async {
@@ -332,16 +358,15 @@ class ListingService extends ChangeNotifier {
         forceRefresh: forceRefresh);
   }
 
-  // Récupérer les annonces pour une agence (toutes les annonces pour l'instant)
+  // Récupérer les annonces d'une agence via l'endpoint utilisateur
   Future<List<Property>> getAgencyListings(String agencyId,
       {bool forceRefresh = false}) async {
-    // Les agences voient les annonces de leurs agents
-    return await _fetchListings('/api/properties/agency/$agencyId',
+    return await _fetchListings('/api/properties/user/$agencyId',
         forceRefresh: forceRefresh);
   }
 
   Future<List<Property>> _fetchListings(String endpoint,
-      {bool forceRefresh = false}) async {
+      {bool forceRefresh = false, int page = 1}) async {
     // Identifier l'entité propriétaire via l'endpoint (user ID ou agency ID)
     String? currentTargetId;
     if (endpoint.contains('/user/')) {
@@ -350,40 +375,53 @@ class ListingService extends ChangeNotifier {
       currentTargetId = endpoint.split('/agency/').last;
     }
 
-    // Si la cible change, on force le rafraîchissement
-    if (currentTargetId != null && _cachedOwnerId != currentTargetId) {
+    // Si la cible ou l'endpoint change, on force le rafraîchissement
+    if (_cachedOwnerId != currentTargetId || _cachedEndpoint != endpoint) {
       debugPrint(
-          'ListingService: Target changed from $_cachedOwnerId to $currentTargetId. Forcing refresh.');
+          'ListingService: Target/endpoint changed from $_cachedOwnerId@$_cachedEndpoint to $currentTargetId@$endpoint. Forcing refresh.');
       forceRefresh = true;
       _cachedOwnerId = currentTargetId;
+      _cachedEndpoint = endpoint;
+      _lastFetchTime = null;
       _isLoaded = false;
+      _currentPage = 1;
+      _hasMore = true;
     }
 
-    // Si les données sont déjà chargées et le cache est valide, retourner les données en cache
-    if (_isLoaded && !forceRefresh && _isCacheValid()) {
+    _currentEndpoint = endpoint; // Save endpoint for loadMore
+
+    // Si les données sont déjà chargées et le cache est valide (et page 1), retourner le cache
+    if (_isLoaded && !forceRefresh && _isCacheValid() && page == 1) {
       debugPrint(
           'Returning cached listings for $_cachedOwnerId (${_listings.length} items)');
       return _listings;
     }
 
     // Éviter les chargements multiples simultanés
-    if (_isLoading) {
+    if (_isLoading || _isLoadingMore) {
       debugPrint('Listings already loading, waiting...');
       // Attendre que le chargement en cours se termine
-      while (_isLoading) {
+      while (_isLoading || _isLoadingMore) {
         await Future.delayed(const Duration(milliseconds: 100));
       }
       return _listings;
     }
 
-    _isLoading = true;
+    if (page == 1) {
+      _isLoading = true;
+      _currentPage = 1;
+      _hasMore = true;
+    } else {
+      _isLoadingMore = true;
+    }
     notifyListeners();
 
     final capturedSessionId = _sessionId; // Capturer la session actuelle
 
     try {
-      debugPrint('Fetching listings from API: $endpoint');
-      final response = await _apiClient.dio.get(endpoint);
+      debugPrint('Fetching listings from API: $endpoint?page=$page&limit=10');
+      final response = await _apiClient.dio
+          .get(endpoint, queryParameters: {'page': page, 'limit': 10});
 
       // Vérifier si la session est toujours la même après l'async
       if (capturedSessionId != _sessionId) {
@@ -395,21 +433,46 @@ class ListingService extends ChangeNotifier {
       final body = response.data as Map<String, dynamic>;
       final data = body['data'] as List<dynamic>;
 
-      _listings = data.map((json) => Property.fromJson(json)).toList();
+      final newItems = data.map((json) => Property.fromJson(json)).toList();
+
+      if (page == 1) {
+        _listings = newItems;
+      } else {
+        _listings.addAll(newItems);
+      }
+
       _isLoaded = true;
       _lastFetchTime = DateTime.now();
+      _currentPage = page;
 
-      debugPrint('Fetched ${_listings.length} listings from $endpoint');
+      // Check if there are more items to load
+      if (newItems.length < 10) {
+        _hasMore = false;
+      }
+
+      debugPrint(
+          'Fetched ${newItems.length} listings from $endpoint (Total: ${_listings.length}, hasMore: $_hasMore)');
       return _listings;
     } catch (e) {
       debugPrint('Error fetching listings from $endpoint: $e');
-      return _listings; // Retourner les données en cache même en cas d'erreur
+      if (page == 1 && forceRefresh) {
+        // En cas d'échec sur refresh, on peut choisir de vider ou pas.
+        // On conserve l'existant.
+      }
+      return _listings;
     } finally {
       if (capturedSessionId == _sessionId) {
         _isLoading = false;
+        _isLoadingMore = false;
         notifyListeners();
       }
     }
+  }
+
+  Future<void> loadMoreListings() async {
+    if (_isLoading || _isLoadingMore || !_hasMore || _currentEndpoint.isEmpty)
+      return;
+    await _fetchListings(_currentEndpoint, page: _currentPage + 1);
   }
 
   Future<List<Property>> getListingsByType(String type) async {

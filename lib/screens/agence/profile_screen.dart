@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/models/user_model.dart';
+import 'package:dramus/services/agent_service.dart';
+import 'package:dramus/services/favorites_service.dart';
+import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/services/message_service.dart';
 import 'package:dramus/theme.dart';
 import 'package:dramus/widgets/custom_button.dart';
 import 'package:dramus/screens/auth/login_screen.dart';
@@ -53,6 +58,18 @@ class ProfileScreen extends StatelessWidget {
     );
 
     if (confirmed == true) {
+      // Réinitialiser tous les caches avant la déconnexion
+      if (context.mounted) {
+        try {
+          context.read<ListingService>().reset();
+          context.read<FavoritesService>().clearFavorites();
+          context.read<MessageService>().clear();
+          context.read<AgentService>().clear();
+        } catch (e) {
+          debugPrint('Erreur lors du nettoyage des caches: $e');
+        }
+      }
+
       await authController.signOut();
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -109,8 +126,9 @@ class ProfileScreen extends StatelessWidget {
           CircleAvatar(
             radius: 50,
             backgroundColor: DramusColors.primaryTeal,
-            backgroundImage:
-                user.avatar.isNotEmpty ? NetworkImage(user.avatar) : null,
+            backgroundImage: user.avatar.isNotEmpty
+                ? CachedNetworkImageProvider(user.avatar)
+                : null,
             child: user.avatar.isEmpty
                 ? Text(
                     user.initials,

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dramus/models/property.dart';
 import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:dramus/theme.dart';
-import 'package:dramus/widgets/filter_panel.dart';
 import 'package:dramus/widgets/header_section.dart';
 import 'package:dramus/widgets/property_card.dart';
 import 'package:dramus/screens/agence/property_detail_screen.dart';
@@ -22,28 +22,43 @@ class _ListingsScreenState extends State<ListingsScreen> {
   late List<Property> _filteredListings;
   bool _isLoading = true;
   String _selectedType = 'all';
-  int _minPrice = 0;
-  int _maxPrice = 5000000;
   final _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _filteredListings = []; // Initialiser la liste vide
-    _isLoading = true;
+    _scrollController.addListener(_onScroll);
+    final listingService = context.read<ListingService>();
+    final authController = context.read<AuthController>();
+    final user = authController.user!;
+    final role = user.role.toLowerCase();
+    final expectedEndpoint = '/api/properties/user/${user.id}';
+
+    // Afficher immédiatement le cache s'il correspond à cet utilisateur
+    if (listingService.isLoaded &&
+        listingService.cachedListings.isNotEmpty &&
+        listingService.isCacheValidFor(expectedEndpoint, targetId: user.id)) {
+      _filteredListings = _filterListings(listingService.cachedListings);
+      _isLoading = false;
+    } else {
+      _filteredListings = [];
+      _isLoading = true;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final listingService = context.read<ListingService>();
-      final authController = context.read<AuthController>();
-      final user = authController.user;
-      final role = user!.role.toLowerCase();
-      if (role == 'agence' || role == 'agency') {
-        await listingService.getAgencyListings(user.id);
-      } else {
-        // Pour particuliers et agents
-        await listingService.getUserListings(user.id);
+      if (!listingService.isLoaded ||
+          !listingService.isCacheValidFor(expectedEndpoint,
+              targetId: user.id)) {
+        if (role == 'agence' || role == 'agency') {
+          await listingService.getAgencyListings(user.id);
+        } else {
+          // Pour particuliers et agents
+          await listingService.getUserListings(user.id);
+        }
       }
       _applyFilters();
-      if (mounted) {
+      if (mounted && _isLoading) {
         setState(() {
           _isLoading = false;
         });
@@ -54,22 +69,30 @@ class _ListingsScreenState extends State<ListingsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _applyFilters() {
-    final listingService = context.read<ListingService>();
-    final authController = context.read<AuthController>();
-    final user = authController.user;
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      final listingService = context.read<ListingService>();
+      if (!listingService.isLoading &&
+          !listingService.isLoadingMore &&
+          listingService.hasMore) {
+        listingService.loadMoreListings().then((_) {
+          if (mounted) _applyFilters();
+        });
+      }
+    }
+  }
 
-    List<Property> listings = listingService.cachedListings;
-
+  List<Property> _filterListings(List<Property> listings) {
     if (_selectedType != 'all') {
       listings = listings.where((p) => p.type == _selectedType).toList();
     }
 
     listings = listings.where((p) {
-      if (p.price < _minPrice || p.price > _maxPrice) return false;
       if (_searchController.text.isNotEmpty &&
           !p.title
               .toLowerCase()
@@ -85,60 +108,54 @@ class _ListingsScreenState extends State<ListingsScreen> {
       return true;
     }).toList();
 
+    return listings;
+  }
+
+  void _applyFilters() {
+    final listingService = context.read<ListingService>();
     setState(() {
-      _filteredListings = listings;
+      _filteredListings = _filterListings(listingService.cachedListings);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          HeaderSection(
-            title: 'Annonces immobilières',
-            subtitle: '${_filteredListings.length} propriétés trouvées',
-          ),
-          SizedBox(height: AppSpacing.lg),
-          Padding(
-            padding: AppSpacing.paddingMd,
-            child: TextField(
-              controller: _searchController,
-              onChanged: (_) => _applyFilters(),
-              decoration: const InputDecoration(
-                hintText: 'Rechercher par titre ou localisation',
-                prefixIcon: Icon(
-                  Icons.search,
-                ),
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isNarrow = screenWidth < 300;
+    final headerExtent = (isNarrow ? 180 : 150) + statusBarHeight;
+
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _FixedHeaderDelegate(
+            extent: headerExtent,
+            child: HeaderSection(
+              title: 'Annonces immobilières',
+              padding: EdgeInsets.only(
+                left: AppSpacing.lg,
+                right: AppSpacing.lg,
+                top: statusBarHeight + AppSpacing.sm,
+                bottom: AppSpacing.sm,
               ),
+              child: _buildFilterCard(),
             ),
           ),
-          SizedBox(height: AppSpacing.lg),
-          Padding(
-            padding: AppSpacing.paddingMd,
-            child: FilterPanel(
-              onFilterChanged: (type, minPrice, maxPrice) {
-                setState(() {
-                  _selectedType = type;
-                  _minPrice = minPrice;
-                  _maxPrice = maxPrice;
-                });
-                _applyFilters();
-              },
-            ),
-          ),
-          SizedBox(height: AppSpacing.lg),
-          if (_isLoading)
-            const Center(
+        ),
+        if (_isLoading)
+          const SliverToBoxAdapter(
+            child: Center(
               child: Padding(
                 padding: EdgeInsets.all(32.0),
-                child: CircularProgressIndicator(
-                  color: DramusColors.primaryTeal,
-                ),
+                child: CircularProgressIndicator(),
               ),
-            )
-          else if (_filteredListings.isEmpty)
-            Center(
+            ),
+          )
+        else if (_filteredListings.isEmpty)
+          SliverToBoxAdapter(
+            child: Center(
               child: Padding(
                 padding: AppSpacing.paddingXl,
                 child: Column(
@@ -146,7 +163,7 @@ class _ListingsScreenState extends State<ListingsScreen> {
                     Icon(
                       Icons.search_off,
                       size: 48,
-                      color: DramusColors.secondaryText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     SizedBox(height: AppSpacing.lg),
                     Text(
@@ -159,64 +176,167 @@ class _ListingsScreenState extends State<ListingsScreen> {
                     Text(
                       'Essayez d\'ajuster vos critères de recherche',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: DramusColors.secondaryText,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],
                 ),
               ),
-            )
-          else
-            Padding(
-              padding: AppSpacing.paddingMd,
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount:
-                      MediaQuery.of(context).size.width > 600 ? 2 : 1,
-                  crossAxisSpacing: AppSpacing.lg,
-                  mainAxisSpacing: AppSpacing.lg,
-                  childAspectRatio:
-                      MediaQuery.of(context).size.width > 600 ? 0.8 : 0.9,
-                ),
-                itemCount: _filteredListings.length,
-                itemBuilder: (context, index) {
+            ),
+          )
+        else
+          SliverPadding(
+            padding: AppSpacing.paddingMd,
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
                   final property = _filteredListings[index];
-                  return PropertyCard(
-                    property: property,
-                    onTap: () {
-                      // TODO: navigate to detail
-                    },
-                    onFavoriteToggle: (isFavorite) {
-                      // TODO: implement
-                    },
-                    canManage: true,
-                    onViewDetails: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              PropertyDetailScreen(property: property),
-                        ),
-                      );
-                    },
-                    onEdit: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              EditPropertyScreen(property: property),
-                        ),
-                      );
-                    },
-                    onDelete: () {
-                      _showDeleteConfirmationDialog(context, property);
-                    },
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: AppSpacing.lg),
+                    child: PropertyCard(
+                      property: property,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                PropertyDetailScreen(property: property),
+                          ),
+                        );
+                      },
+                      onFavoriteToggle: (isFavorite) {
+                        // Non applicable dans l'espace agence
+                      },
+                      canManage: true,
+                      onViewDetails: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                PropertyDetailScreen(property: property),
+                          ),
+                        );
+                      },
+                      onEdit: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                EditPropertyScreen(property: property),
+                          ),
+                        );
+                      },
+                      onDelete: () {
+                        _showDeleteConfirmationDialog(context, property);
+                      },
+                    ),
                   );
                 },
+                childCount: _filteredListings.length,
               ),
             ),
-          SizedBox(height: AppSpacing.xxl),
-        ],
+          ),
+        // Indicator for loading more at the bottom
+        if (context.watch<ListingService>().isLoadingMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFilterCard() {
+    final typeDropdown = DropdownButton<String>(
+      isExpanded: true,
+      value: _selectedType,
+      underline: const SizedBox(),
+      icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+      items: const [
+        DropdownMenuItem(value: 'all', child: Text('Tous')),
+        DropdownMenuItem(value: 'Maison', child: Text('Maison')),
+        DropdownMenuItem(value: 'Appartement', child: Text('Appart.')),
+        DropdownMenuItem(value: 'Terrain', child: Text('Terrain')),
+        DropdownMenuItem(value: 'Bureau', child: Text('Bureau')),
+        DropdownMenuItem(value: 'Chambre', child: Text('Chambre')),
+        DropdownMenuItem(value: 'Magasin', child: Text('Magasin')),
+        DropdownMenuItem(value: 'Villa', child: Text('Villa')),
+        DropdownMenuItem(value: 'Studio', child: Text('Studio')),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          setState(() => _selectedType = value);
+          _applyFilters();
+        }
+      },
+    );
+
+    final searchField = TextField(
+      controller: _searchController,
+      onChanged: (_) => _applyFilters(),
+      style: const TextStyle(fontSize: 13),
+      decoration: const InputDecoration(
+        isDense: true,
+        hintText: 'Rechercher',
+        hintStyle: TextStyle(fontSize: 13),
+        prefixIcon: Icon(
+          Icons.search,
+          size: 18,
+        ),
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      ),
+    );
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 300;
+
+          if (narrow) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  typeDropdown,
+                  const SizedBox(height: 4),
+                  searchField,
+                ],
+              ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: typeDropdown),
+                Container(
+                  height: 22,
+                  width: 1,
+                  color: Theme.of(context).dividerColor,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                Expanded(flex: 3, child: searchField),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -280,6 +400,31 @@ class _ListingsScreenState extends State<ListingsScreen> {
       }
     }
   }
+}
+
+class _FixedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double extent;
+
+  _FixedHeaderDelegate({
+    required this.child,
+    required this.extent,
+  });
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  bool shouldRebuild(covariant _FixedHeaderDelegate oldDelegate) => true;
 }
 
 class ListingDetailScreen extends StatefulWidget {
@@ -393,10 +538,22 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                       },
                       itemCount: property.images.length,
                       itemBuilder: (context, index) {
-                        return Image.network(
-                          property.images[index],
+                        return CachedNetworkImage(
+                          imageUrl: property.images[index],
                           width: double.infinity,
                           fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.broken_image),
+                          ),
                         );
                       },
                     ),
@@ -463,11 +620,22 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(AppRadius.md),
-                      child: Image.network(
-                        property.images[index],
+                      child: CachedNetworkImage(
+                        imageUrl: property.images[index],
                         width: 100,
                         height: 100,
                         fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 100,
+                          color: Colors.grey[200],
+                          child:
+                              const Center(child: CircularProgressIndicator()),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 100,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.broken_image),
+                        ),
                       ),
                     ),
                   ),
@@ -532,8 +700,8 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _buildDetailItem(context, property.type, 'Type'),
-        _buildDetailItem(
-            context, '${property.surface.toStringAsFixed(0)}m²', 'Surface'),
+        _buildDetailItem(context,
+            '${property.caracteristiques['surface'] ?? 0}m²', 'Surface'),
       ],
     );
   }
@@ -609,7 +777,7 @@ class _ListingDetailScreenState extends State<ListingDetailScreen> {
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundImage: NetworkImage(
+                    backgroundImage: CachedNetworkImageProvider(
                       'https://i.pravatar.cc/150?img=10',
                     ),
                   ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -29,6 +31,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void initState() {
     super.initState();
+    // Si les conversations ont déjà été chargées, ne pas afficher le loading
+    final messageService = context.read<MessageService>();
+    _isInitialized = messageService.hasInitialLoad ||
+        messageService.conversations.isNotEmpty;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeMessages();
     });
@@ -49,7 +55,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     if (authController.user != null) {
       messageService.setCurrentUserId(authController.user!.id);
+
+      final hasData = messageService.conversations.isNotEmpty ||
+          messageService.hasInitialLoad;
+
+      if (hasData) {
+        if (!mounted) return;
+        setState(() {
+          _isInitialized = true;
+        });
+        // Rafraîchir en arrière-plan si un chargement n'est pas déjà en cours
+        if (!messageService.isLoading) {
+          unawaited(messageService.loadConversations());
+        }
+        return;
+      }
+
       await messageService.loadConversations();
+
+      if (!mounted) return;
       setState(() {
         _isInitialized = true;
       });
@@ -108,6 +132,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Widget _buildMobileLayout(
       BuildContext context, MessageService messageService) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final appBarBackgroundColor =
+        isDark ? theme.appBarTheme.backgroundColor : theme.colorScheme.primary;
+    final appBarForegroundColor = isDark
+        ? theme.appBarTheme.foregroundColor
+        : theme.colorScheme.onPrimary;
+
     if (_selectedConversationId != null) {
       // Chercher la conversation existante
       Conversation? conv;
@@ -136,27 +168,26 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        backgroundColor: appBarBackgroundColor,
+        foregroundColor: appBarForegroundColor,
         title: Text(
           'Messages',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).appBarTheme.foregroundColor,
+                color: appBarForegroundColor,
               ),
         ),
         elevation: 1,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh,
-                color: Theme.of(context).appBarTheme.foregroundColor),
+            icon: Icon(Icons.refresh, color: appBarForegroundColor),
             onPressed: () {
               messageService.loadConversations();
             },
           ),
           IconButton(
             icon: Icon(Icons.notifications_outlined,
-                color: Theme.of(context).appBarTheme.foregroundColor),
+                color: appBarForegroundColor),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -443,8 +474,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final filteredConversations = _getFilteredConversations(messageService);
     final authController = Provider.of<AuthController>(context, listen: false);
 
-    // État de chargement avec skeleton
-    if (messageService.isLoading && messageService.conversations.isEmpty) {
+    // État de chargement avec skeleton (uniquement au premier chargement)
+    if (!messageService.hasInitialLoad &&
+        messageService.isLoading &&
+        messageService.conversations.isEmpty) {
       return const ConversationSkeleton(itemCount: 6);
     }
 
@@ -478,8 +511,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
           currentUserId: authController.user?.id,
           onTap: () async {
             setState(() => _selectedConversationId = conv.id);
+            messageService.setActiveConversation(conv.id);
             messageService.loadConversation(conv.id);
-            await messageService.markConversationAsRead(conv.id);
           },
         );
       },
@@ -495,17 +528,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final authController = Provider.of<AuthController>(context, listen: false);
     final currentUserId = authController.user?.id ?? '';
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final appBarBackgroundColor =
+        isDark ? theme.appBarTheme.backgroundColor : theme.colorScheme.primary;
+    final appBarForegroundColor = isDark
+        ? theme.appBarTheme.foregroundColor
+        : theme.colorScheme.onPrimary;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
+        backgroundColor: appBarBackgroundColor,
+        foregroundColor: appBarForegroundColor,
         leading: MediaQuery.of(context).size.width < 900
             ? IconButton(
-                icon: Icon(Icons.arrow_back,
-                    color: Theme.of(context).appBarTheme.foregroundColor),
+                icon: Icon(Icons.arrow_back, color: appBarForegroundColor),
                 onPressed: () {
                   setState(() => _selectedConversationId = null);
+                  messageService.setActiveConversation(null);
                 },
               )
             : null,
@@ -516,7 +557,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
             conv.user2Avatar != null && conv.user2Avatar!.isNotEmpty
                 ? CircleAvatar(
                     radius: 20,
-                    backgroundColor: Theme.of(context).dividerColor,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: ClipOval(
                       child: CachedNetworkImage(
                         imageUrl: conv.user2Avatar!,
@@ -524,29 +566,32 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         height: 40,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
-                          color:
-                              DramusColors.primaryTeal.withValues(alpha: 0.2),
-                          child: const Center(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          child: Center(
                             child: SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: DramusColors.primaryTeal,
+                                color: appBarForegroundColor,
                               ),
                             ),
                           ),
                         ),
                         errorWidget: (context, url, error) => CircleAvatar(
                           radius: 20,
-                          backgroundColor: DramusColors.primaryTeal,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                           child: Text(
                             _getInitials(conv.user2Name),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(
-                                  color: Colors.white,
+                                  color: appBarForegroundColor,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
@@ -556,11 +601,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   )
                 : CircleAvatar(
                     radius: 20,
-                    backgroundColor: DramusColors.primaryTeal,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: Text(
                       _getInitials(conv.user2Name),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
+                            color: appBarForegroundColor,
                             fontWeight: FontWeight.bold,
                           ),
                     ),
@@ -576,6 +622,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         ? conv.user2Name
                         : 'Client inconnu',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: appBarForegroundColor,
                           fontWeight: FontWeight.bold,
                         ),
                   ),

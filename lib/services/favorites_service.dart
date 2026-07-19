@@ -8,8 +8,6 @@ class FavoritesService extends ChangeNotifier {
   // List de favoris (IDs des propriétés)
   Set<String> _favoriteIds = {};
   bool _isLoading = false;
-  int _sessionId = 0; // Pour éviter les race conditions lors de la déconnexion
-  String? _cachedUserId; // Pour identifier à qui appartient ce cache
 
   Set<String> get favoriteIds => _favoriteIds;
   bool get isLoading => _isLoading;
@@ -26,17 +24,13 @@ class FavoritesService extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      final capturedSessionId = _sessionId;
       final response = await _apiClient.dio.post(
         '/api/favorites/$propertyId',
       );
 
-      if (capturedSessionId != _sessionId) return false;
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         _favoriteIds.add(propertyId);
-        debugPrint(
-            'FavoritesService: Successfully added favorite: $propertyId');
+        debugPrint('FavoritesService: Successfully added favorite: $propertyId');
         notifyListeners();
         return true;
       }
@@ -45,13 +39,8 @@ class FavoritesService extends ChangeNotifier {
           'FavoritesService: Failed to add favorite - Status: ${response.statusCode}');
       return false;
     } on DioException catch (e) {
-      debugPrint('FavoritesService: Error adding favorite: ${e.message}');
-      if (e.response != null) {
-        debugPrint(
-            'FavoritesService: Error response data: ${e.response?.data}');
-        debugPrint(
-            'FavoritesService: Error status code: ${e.response?.statusCode}');
-      }
+      debugPrint(
+          'FavoritesService: Error adding favorite: ${e.message}');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -68,12 +57,9 @@ class FavoritesService extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      final capturedSessionId = _sessionId;
       final response = await _apiClient.dio.delete(
         '/api/favorites/$propertyId',
       );
-
-      if (capturedSessionId != _sessionId) return false;
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         _favoriteIds.remove(propertyId);
@@ -87,7 +73,8 @@ class FavoritesService extends ChangeNotifier {
           'FavoritesService: Failed to remove favorite - Status: ${response.statusCode}');
       return false;
     } on DioException catch (e) {
-      debugPrint('FavoritesService: Error removing favorite: ${e.message}');
+      debugPrint(
+          'FavoritesService: Error removing favorite: ${e.message}');
       _isLoading = false;
       notifyListeners();
       return false;
@@ -107,31 +94,13 @@ class FavoritesService extends ChangeNotifier {
   }
 
   /// Récupérer la liste des favoris de l'utilisateur
-  Future<void> loadFavorites({bool forceRefresh = false}) async {
-    // Fail-safe: si le cache était pour une session précédente (null), on force
-    if (_cachedUserId == null) forceRefresh = true;
-
-    if (_favoriteIds.isNotEmpty && !forceRefresh) {
-      debugPrint('FavoritesService: Returning cached favorites');
-      return;
-    }
-
+  Future<void> loadFavorites() async {
     try {
       debugPrint('FavoritesService: Loading user favorites');
       _isLoading = true;
-      _cachedUserId =
-          "active_session"; // Marque que le cache est peuplé pour la session actuelle
       notifyListeners();
 
-      final capturedSessionId = _sessionId;
-
       final response = await _apiClient.dio.get('/api/favorites');
-
-      if (capturedSessionId != _sessionId) {
-        debugPrint(
-            'FavoritesService: Aborting loadFavorites - session changed');
-        return;
-      }
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -156,11 +125,13 @@ class FavoritesService extends ChangeNotifier {
             .where((id) => id.isNotEmpty)
             .toSet();
 
-        debugPrint('FavoritesService: Loaded ${_favoriteIds.length} favorites');
+        debugPrint(
+            'FavoritesService: Loaded ${_favoriteIds.length} favorites');
         notifyListeners();
       }
     } on DioException catch (e) {
-      debugPrint('FavoritesService: Error loading favorites: ${e.message}');
+      debugPrint(
+          'FavoritesService: Error loading favorites: ${e.message}');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -169,8 +140,6 @@ class FavoritesService extends ChangeNotifier {
 
   /// Réinitialiser les favoris (par exemple lors de la déconnexion)
   void clearFavorites() {
-    _sessionId++;
-    _cachedUserId = null;
     _favoriteIds.clear();
     _isLoading = false;
     notifyListeners();

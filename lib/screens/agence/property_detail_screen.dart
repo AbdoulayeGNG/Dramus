@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dramus/models/property.dart';
+import 'package:dramus/models/property_constants.dart';
 import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/theme.dart';
 
@@ -155,21 +157,25 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       child: PageView.builder(
         itemCount: property.images.length,
         itemBuilder: (context, index) {
-          return Image.network(
-            property.images[index],
+          return CachedNetworkImage(
+            imageUrl: property.images[index],
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Theme.of(context).colorScheme.surfaceVariant,
-                child: const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    size: 64,
-                    color: DramusColors.secondaryText,
-                  ),
+            placeholder: (context, url) => Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: const Center(
+                child: Icon(
+                  Icons.broken_image,
+                  size: 64,
+                  color: DramusColors.secondaryText,
                 ),
-              );
-            },
+              ),
+            ),
           );
         },
       ),
@@ -180,16 +186,22 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          _formatPrice(property.price),
-          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                color: DramusColors.primaryTeal,
-                fontWeight: FontWeight.bold,
-              ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            _formatPrice(property.price),
+            maxLines: 1,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: DramusColors.primaryTeal,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
         ),
         SizedBox(height: AppSpacing.sm),
         Text(
           property.title,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -199,6 +211,48 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Widget _buildPropertyDetails(Property property) {
+    final List<Widget> detailsItems = [
+      _buildDetailItem(Icons.category, 'Type', property.type),
+      _buildDetailItem(Icons.location_city, 'Ville', property.location.city),
+      _buildDetailItem(
+          Icons.location_on, 'Quartier', property.location.district),
+    ];
+
+    final configs =
+        PropertyConstants.characteristicsByType[property.type] ?? [];
+    for (var config in configs) {
+      final value = property.caracteristiques[config.key];
+      if (value != null) {
+        String displayVal = value.toString();
+        if (config.type == 'boolean') {
+          displayVal = (value == true || value == 'true') ? 'Oui' : 'Non';
+        } else if (config.key == 'surface') {
+          displayVal = '${value}m²';
+        }
+        detailsItems.add(_buildDetailItem(
+            PropertyConstants.getIcon(config.icon), config.label, displayVal));
+      }
+    }
+
+    // Grouper par ligne de 2.
+    final List<Widget> rows = [];
+    for (int i = 0; i < detailsItems.length; i += 2) {
+      rows.add(
+        Row(
+          children: [
+            Expanded(child: detailsItems[i]),
+            if (i + 1 < detailsItems.length)
+              Expanded(child: detailsItems[i + 1])
+            else
+              Expanded(child: const SizedBox.shrink()),
+          ],
+        ),
+      );
+      if (i + 2 < detailsItems.length) {
+        rows.add(SizedBox(height: AppSpacing.md));
+      }
+    }
+
     return Container(
       padding: AppSpacing.paddingMd,
       decoration: BoxDecoration(
@@ -207,45 +261,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildDetailItem(
-                  Icons.category,
-                  'Type',
-                  property.type,
-                ),
-              ),
-              Expanded(
-                child: _buildDetailItem(
-                  Icons.square_foot,
-                  'Surface',
-                  '${property.surface.toStringAsFixed(0)}m²',
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: _buildDetailItem(
-                  Icons.location_city,
-                  'Ville',
-                  property.location.city,
-                ),
-              ),
-              Expanded(
-                child: _buildDetailItem(
-                  Icons.location_on,
-                  'Quartier',
-                  property.location.district,
-                ),
-              ),
-            ],
-          ),
-        ],
+        children: rows,
       ),
     );
   }
@@ -265,11 +281,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       color: DramusColors.secondaryText,
                     ),
               ),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
               ),
             ],
           ),

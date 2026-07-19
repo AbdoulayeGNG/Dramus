@@ -6,6 +6,7 @@ import 'package:dramus/services/listing_service.dart';
 import 'package:dramus/core/state/auth_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:dramus/models/property_constants.dart';
 
 class EditPropertyScreen extends StatefulWidget {
   final Property property;
@@ -29,8 +30,10 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
   final _priceController = TextEditingController();
-  final _areaController = TextEditingController();
   final _imagesController = TextEditingController();
+
+  final Map<String, TextEditingController> _charControllers = {};
+  final Map<String, bool> _charBools = {};
 
   @override
   void initState() {
@@ -42,6 +45,12 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
     final property = widget.property;
 
     _propertyType = property.type;
+    if (!PropertyConstants.availableTypes.contains(_propertyType)) {
+      _propertyType = PropertyConstants.availableTypes.first;
+    }
+
+    _buildControllersForType(_propertyType, property.caracteristiques);
+
     _titleController.text = property.title;
     _descriptionController.text = property.description;
     _cityController.text = property.location.city;
@@ -49,10 +58,34 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
     _latitudeController.text = property.location.latitude?.toString() ?? '';
     _longitudeController.text = property.location.longitude?.toString() ?? '';
     _priceController.text = property.price.toString();
-    _areaController.text = property.surface.toString();
     _imagesController.text = property.images.join(', ');
 
     _validateForm();
+  }
+
+  void _buildControllersForType(String type,
+      [Map<String, dynamic>? initialValues]) {
+    for (var c in _charControllers.values) {
+      c.dispose();
+    }
+    _charControllers.clear();
+    _charBools.clear();
+
+    final configs = PropertyConstants.characteristicsByType[type] ?? [];
+    for (var config in configs) {
+      if (config.type == 'number') {
+        final ctrl = TextEditingController();
+        if (initialValues != null && initialValues[config.key] != null) {
+          ctrl.text = initialValues[config.key].toString();
+        }
+        _charControllers[config.key] = ctrl;
+      } else if (config.type == 'boolean') {
+        _charBools[config.key] = false;
+        if (initialValues != null && initialValues[config.key] != null) {
+          _charBools[config.key] = (initialValues[config.key] == true);
+        }
+      }
+    }
   }
 
   @override
@@ -64,7 +97,9 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
     _latitudeController.dispose();
     _longitudeController.dispose();
     _priceController.dispose();
-    _areaController.dispose();
+    for (var c in _charControllers.values) {
+      c.dispose();
+    }
     _imagesController.dispose();
     super.dispose();
   }
@@ -154,13 +189,25 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
   }
 
   void _validateForm() {
+    bool hasRequired = true;
+    final configs =
+        PropertyConstants.characteristicsByType[_propertyType] ?? [];
+    for (var config in configs) {
+      if (config.isRequired && config.type == 'number') {
+        if (_charControllers[config.key]?.text.isEmpty ?? true) {
+          hasRequired = false;
+          break;
+        }
+      }
+    }
+
     setState(() {
       _isFormValid = _titleController.text.isNotEmpty &&
           _descriptionController.text.isNotEmpty &&
           _cityController.text.isNotEmpty &&
           _districtController.text.isNotEmpty &&
           _priceController.text.isNotEmpty &&
-          _areaController.text.isNotEmpty;
+          hasRequired;
     });
   }
 
@@ -178,13 +225,27 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
 
       final listingService = context.read<ListingService>();
 
+      final caracData = <String, dynamic>{};
+      final configs =
+          PropertyConstants.characteristicsByType[_propertyType] ?? [];
+      for (var config in configs) {
+        if (config.type == 'number') {
+          if (_charControllers[config.key]?.text.isNotEmpty ?? false) {
+            caracData[config.key] =
+                num.tryParse(_charControllers[config.key]!.text) ?? 0;
+          }
+        } else if (config.type == 'boolean') {
+          caracData[config.key] = _charBools[config.key] ?? false;
+        }
+      }
+
       // Créer une nouvelle propriété avec les données mises à jour
       final updatedProperty = Property(
         id: widget.property.id,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         price: double.parse(_priceController.text),
-        surface: double.parse(_areaController.text),
+        caracteristiques: caracData,
         type: _propertyType,
         images: _imagesController.text
             .split(',')
@@ -267,8 +328,13 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
 
             SizedBox(height: AppSpacing.lg),
 
-            // Prix et surface
-            _buildPriceAreaSection(),
+            // Prix
+            _buildPriceSection(),
+
+            SizedBox(height: AppSpacing.lg),
+
+            // Caractéristiques
+            _buildCharacteristicsSection(),
 
             SizedBox(height: AppSpacing.lg),
 
@@ -315,17 +381,16 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
             value: _propertyType,
             isExpanded: true,
             underline: const SizedBox.shrink(),
-            items: const [
-              DropdownMenuItem(value: 'Maison', child: Text('Maison')),
-              DropdownMenuItem(
-                  value: 'Appartement', child: Text('Appartement')),
-              DropdownMenuItem(value: 'Terrain', child: Text('Terrain')),
-              DropdownMenuItem(value: 'Bureau', child: Text('Bureau')),
-              DropdownMenuItem(value: 'Commerce', child: Text('Commerce')),
-            ],
+            items: PropertyConstants.availableTypes.map((type) {
+              return DropdownMenuItem(value: type, child: Text(type));
+            }).toList(),
             onChanged: (value) {
               if (value != null) {
-                setState(() => _propertyType = value);
+                setState(() {
+                  _propertyType = value;
+                  _buildControllersForType(value);
+                });
+                _validateForm();
               }
             },
           ),
@@ -458,44 +523,90 @@ class _EditPropertyScreenState extends State<EditPropertyScreen> {
     );
   }
 
-  Widget _buildPriceAreaSection() {
+  Widget _buildPriceSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Prix et surface',
+          'Prix',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
         SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _priceController,
-                decoration: const InputDecoration(
-                  labelText: 'Prix (GNF)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (_) => _validateForm(),
-              ),
-            ),
-            SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: TextField(
-                controller: _areaController,
-                decoration: const InputDecoration(
-                  labelText: 'Surface (m²)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (_) => _validateForm(),
-              ),
-            ),
-          ],
+        TextField(
+          controller: _priceController,
+          decoration: const InputDecoration(
+            labelText: 'Prix (GNF)',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          onChanged: (_) => _validateForm(),
         ),
+      ],
+    );
+  }
+
+  Widget _buildCharacteristicsSection() {
+    final configs =
+        PropertyConstants.characteristicsByType[_propertyType] ?? [];
+    if (configs.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Caractéristiques',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        SizedBox(height: AppSpacing.md),
+        ...configs.map((config) {
+          if (config.type == 'number') {
+            return Padding(
+              padding: EdgeInsets.only(bottom: AppSpacing.md),
+              child: TextField(
+                controller: _charControllers[config.key],
+                decoration: InputDecoration(
+                  labelText: '${config.label} ${config.isRequired ? '*' : ''}',
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (_) => _validateForm(),
+              ),
+            );
+          } else if (config.type == 'boolean') {
+            return Padding(
+              padding: EdgeInsets.only(bottom: AppSpacing.md),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: DramusColors.border),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: CheckboxListTile(
+                  title: Text(config.label,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  secondary: Icon(PropertyConstants.getIcon(config.icon),
+                      color: DramusColors.primaryTeal),
+                  value: _charBools[config.key] ?? false,
+                  onChanged: (bool? val) {
+                    setState(() {
+                      _charBools[config.key] = val ?? false;
+                    });
+                    _validateForm();
+                  },
+                  activeColor: DramusColors.primaryTeal,
+                  controlAffinity: ListTileControlAffinity.trailing,
+                ),
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }).toList(),
       ],
     );
   }

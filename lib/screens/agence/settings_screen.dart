@@ -4,7 +4,13 @@ import 'package:dramus/theme.dart';
 import 'package:dramus/core/state/theme_controller.dart';
 import 'package:dramus/screens/agence/edit_profile_screen.dart';
 import 'package:dramus/screens/agence/help_center_screen.dart';
+import 'package:dramus/services/agent_service.dart';
 import 'package:dramus/services/auth_service.dart';
+import 'package:dramus/services/favorites_service.dart';
+import 'package:dramus/services/listing_service.dart';
+import 'package:dramus/services/message_service.dart';
+import 'package:dramus/core/state/auth_controller.dart';
+import 'package:dramus/screens/auth/login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -53,6 +59,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'Mot de passe',
               subtitle: 'Changer votre mot de passe',
               onTap: () => _showChangePasswordDialog(context),
+            ),
+            _buildDivider(),
+            _buildSettingsItem(
+              context,
+              icon: Icons.delete_outline,
+              title: 'Supprimer mon compte',
+              subtitle: 'Action irréversible',
+              textColor: DramusColors.notificationRed,
+              onTap: () => _showDeleteAccountDialog(context),
             ),
             _buildSectionHeader(context, 'Application'),
             Consumer<ThemeController>(
@@ -138,6 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String title,
     String? subtitle,
     Widget? trailing,
+    Color? textColor,
     required VoidCallback onTap,
   }) {
     return Material(
@@ -151,7 +167,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Row(
             children: [
-              Icon(icon, color: DramusColors.primaryTeal, size: 24),
+              Icon(icon,
+                  color: textColor ?? DramusColors.primaryTeal, size: 24),
               SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Column(
@@ -159,7 +176,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Text(
                       title,
-                      style: Theme.of(context).textTheme.bodyLarge,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: textColor,
+                          ),
                     ),
                     if (subtitle != null) ...[
                       SizedBox(height: 2),
@@ -430,6 +449,166 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     )
                   : const Text('Valider'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext parentContext) {
+    final passwordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+    bool obscurePwd = true;
+
+    showDialog(
+      context: parentContext,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (stateContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          title: Text(
+            'Supprimer mon compte (Irreversible)',
+            style: Theme.of(parentContext).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: DramusColors.notificationRed,
+                ),
+          ),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Cette action est irréversible. Toutes vos données seront perdues. Veuillez entrer votre mot de passe pour confirmer.',
+                    style:
+                        Theme.of(parentContext).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(parentContext)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                  ),
+                  SizedBox(height: AppSpacing.lg),
+                  TextFormField(
+                    controller: passwordController,
+                    obscureText: obscurePwd,
+                    decoration: InputDecoration(
+                      labelText: 'Mot de passe',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscurePwd ? Icons.visibility_off : Icons.visibility,
+                          size: 20,
+                        ),
+                        onPressed: () =>
+                            setDialogState(() => obscurePwd = !obscurePwd),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Requis';
+                      return null;
+                    },
+                    onChanged: (val) {
+                      setDialogState(() {});
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+              child: Text(
+                'Annuler',
+                style: TextStyle(
+                    color:
+                        Theme.of(parentContext).colorScheme.onSurfaceVariant),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: (isLoading || passwordController.text.isEmpty)
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        setDialogState(() => isLoading = true);
+                        try {
+                          final success = await AuthService.instance
+                              .deleteAccount(passwordController.text);
+
+                          if (parentContext.mounted) {
+                            if (success) {
+                              Navigator.pop(dialogContext);
+                              try {
+                                parentContext.read<ListingService>().reset();
+                                parentContext
+                                    .read<FavoritesService>()
+                                    .clearFavorites();
+                                parentContext.read<MessageService>().clear();
+                                parentContext.read<AgentService>().clear();
+                              } catch (e) {
+                                debugPrint(
+                                    'Erreur lors du nettoyage des caches: $e');
+                              }
+                              await parentContext
+                                  .read<AuthController>()
+                                  .signOut(skipServerLogout: true);
+
+                              if (parentContext.mounted) {
+                                Navigator.of(parentContext).pushAndRemoveUntil(
+                                  MaterialPageRoute(
+                                      builder: (_) => const LoginScreen()),
+                                  (route) => false,
+                                );
+                              }
+                            } else {
+                              ScaffoldMessenger.of(parentContext).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Erreur lors de la suppression'),
+                                  backgroundColor: DramusColors.notificationRed,
+                                ),
+                              );
+                              setDialogState(() => isLoading = false);
+                            }
+                          }
+                        } catch (e) {
+                          if (parentContext.mounted) {
+                            ScaffoldMessenger.of(parentContext).showSnackBar(
+                              SnackBar(
+                                content: Text('Une erreur est survenue : $e'),
+                                backgroundColor: DramusColors.notificationRed,
+                              ),
+                            );
+                            setDialogState(() => isLoading = false);
+                          }
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DramusColors.notificationRed,
+                foregroundColor: DramusColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: DramusColors.white,
+                      ),
+                    )
+                  : const Text('Supprimer'),
             ),
           ],
         ),

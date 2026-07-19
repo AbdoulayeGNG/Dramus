@@ -3,10 +3,14 @@ import 'package:dramus/theme.dart';
 
 class FilterPanel extends StatefulWidget {
   final Function(String type, int minPrice, int maxPrice) onFilterChanged;
+  final TextEditingController? searchController;
+  final VoidCallback? onSearchChanged;
 
   const FilterPanel({
     super.key,
     required this.onFilterChanged,
+    this.searchController,
+    this.onSearchChanged,
   });
 
   @override
@@ -15,13 +19,14 @@ class FilterPanel extends StatefulWidget {
 
 class _FilterPanelState extends State<FilterPanel> {
   String _selectedType = 'all';
-  int _minPrice = 0;
-  int _maxPrice = 10000000000;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Theme.of(context).cardColor,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
       padding: AppSpacing.paddingMd,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,72 +38,130 @@ class _FilterPanelState extends State<FilterPanel> {
                 ),
           ),
           SizedBox(height: AppSpacing.lg),
-          DropdownButtonFormField<String>(
-            value: _selectedType,
-            decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              filled: true,
+
+          // ── Recherche & Type de bien ──────────────────────────
+          if (widget.searchController == null)
+            DropdownButtonFormField<String>(
+              value: _selectedType,
+              isExpanded: true,
+              isDense: true,
+              decoration: const InputDecoration(
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                filled: true,
+              ),
+              dropdownColor: Theme.of(context).colorScheme.surface,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+              items: const [
+                DropdownMenuItem(value: 'all', child: Text('Tous les types')),
+                DropdownMenuItem(value: 'Maison', child: Text('Maison')),
+                DropdownMenuItem(
+                    value: 'Appartement', child: Text('Appartement')),
+                DropdownMenuItem(value: 'Terrain', child: Text('Terrain')),
+                DropdownMenuItem(value: 'Bureau', child: Text('Bureau')),
+                DropdownMenuItem(value: 'Chambre', child: Text('Chambre')),
+                DropdownMenuItem(value: 'Magasin', child: Text('Magasin')),
+                DropdownMenuItem(value: 'Villa', child: Text('Villa')),
+                DropdownMenuItem(value: 'Studio', child: Text('Studio')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedType = value);
+                  _notifyParent();
+                }
+              },
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: widget.searchController,
+                    onChanged: (_) => widget.onSearchChanged?.call(),
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Recherche...',
+                      hintStyle: const TextStyle(fontSize: 14),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        size: 20,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedType,
+                    isExpanded: true,
+                    isDense: true,
+                    decoration: const InputDecoration(
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      filled: true,
+                    ),
+                    dropdownColor: Theme.of(context).colorScheme.surface,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'all', child: Text('Tous les types')),
+                      DropdownMenuItem(value: 'Maison', child: Text('Maison')),
+                      DropdownMenuItem(
+                          value: 'Appartement', child: Text('Appartement')),
+                      DropdownMenuItem(
+                          value: 'Terrain', child: Text('Terrain')),
+                      DropdownMenuItem(value: 'Bureau', child: Text('Bureau')),
+                      DropdownMenuItem(
+                          value: 'Chambre', child: Text('Chambre')),
+                      DropdownMenuItem(
+                          value: 'Magasin', child: Text('Magasin')),
+                      DropdownMenuItem(value: 'Villa', child: Text('Villa')),
+                      DropdownMenuItem(value: 'Studio', child: Text('Studio')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedType = value);
+                        _notifyParent();
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
-            dropdownColor: Theme.of(context).colorScheme.surface,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-            items: const [
-              DropdownMenuItem(value: 'all', child: Text('Tous les types')),
-              DropdownMenuItem(value: 'Maison', child: Text('Maison')),
-              DropdownMenuItem(
-                  value: 'Appartement', child: Text('Appartement')),
-              DropdownMenuItem(value: 'Terrain', child: Text('Terrain')),
-              DropdownMenuItem(value: 'Bureau', child: Text('Bureau')),
-              DropdownMenuItem(value: 'Chambre', child: Text('Chambre')),
-              DropdownMenuItem(value: 'Magasin', child: Text('Magasin')),
-              DropdownMenuItem(value: 'Villa', child: Text('Villa')),
-              DropdownMenuItem(value: 'Studio', child: Text('Studio')),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedType = value;
-                });
-                widget.onFilterChanged(_selectedType, _minPrice, _maxPrice);
-              }
-            },
-          ),
-          SizedBox(height: AppSpacing.lg),
-          Text(
-            'Budget: ${_formatPrice(_minPrice)} - ${_formatPrice(_maxPrice)}',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          SizedBox(height: AppSpacing.md),
-          RangeSlider(
-            values: RangeValues(_minPrice.toDouble(), _maxPrice.toDouble()),
-            min: 0,
-            max: 10000000000,
-            onChanged: (values) {
-              setState(() {
-                _minPrice = values.start.toInt();
-                _maxPrice = values.end.toInt();
-              });
-              widget.onFilterChanged(_selectedType, _minPrice, _maxPrice);
-            },
-            activeColor: Theme.of(context).colorScheme.primary,
-            inactiveColor: Theme.of(context).dividerColor,
-          ),
         ],
       ),
     );
   }
 
-  String _formatPrice(int price) {
-    if (price >= 1000000000) {
-      return '${(price / 1000000000).toStringAsFixed(1)} Milliards GNF';
-    } else if (price >= 1000000) {
-      return '${(price / 1000000).toStringAsFixed(1)} Millions GNF';
-    } else if (price >= 1000) {
-      return '${(price / 1000).toStringAsFixed(0)}K GNF';
-    }
-    return '$price GNF';
+  void _notifyParent() {
+    // Aucun filtre de prix : plage maximale
+    widget.onFilterChanged(
+      _selectedType,
+      0,
+      999999999999,
+    );
   }
 }

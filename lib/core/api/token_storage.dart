@@ -1,18 +1,24 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Handles persisting and retrieving auth tokens.
+/// Handles persisting and retrieving auth tokens securely.
 class TokenStorage {
   static const _kAccessToken = 'access_token';
   static const _kRefreshToken = 'refresh_token';
   static const _kUser = 'auth_user_json';
 
-  Future<void> saveTokens({required String accessToken, required String refreshToken}) async {
+  final _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
+
+  Future<void> saveTokens(
+      {required String accessToken, required String refreshToken}) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_kAccessToken, accessToken);
-      await prefs.setString(_kRefreshToken, refreshToken);
+      await _secureStorage.write(key: _kAccessToken, value: accessToken);
+      await _secureStorage.write(key: _kRefreshToken, value: refreshToken);
     } catch (e) {
       debugPrint('TokenStorage.saveTokens error: $e');
     }
@@ -20,8 +26,7 @@ class TokenStorage {
 
   Future<String?> getAccessToken() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_kAccessToken);
+      return await _secureStorage.read(key: _kAccessToken);
     } catch (e) {
       debugPrint('TokenStorage.getAccessToken error: $e');
       return null;
@@ -30,8 +35,7 @@ class TokenStorage {
 
   Future<String?> getRefreshToken() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_kRefreshToken);
+      return await _secureStorage.read(key: _kRefreshToken);
     } catch (e) {
       debugPrint('TokenStorage.getRefreshToken error: $e');
       return null;
@@ -40,9 +44,9 @@ class TokenStorage {
 
   Future<void> clear() async {
     try {
+      await _secureStorage.delete(key: _kAccessToken);
+      await _secureStorage.delete(key: _kRefreshToken);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_kAccessToken);
-      await prefs.remove(_kRefreshToken);
       await prefs.remove(_kUser);
     } catch (e) {
       debugPrint('TokenStorage.clear error: $e');

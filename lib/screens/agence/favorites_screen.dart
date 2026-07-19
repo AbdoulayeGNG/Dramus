@@ -97,20 +97,23 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       ),
       body: _isLoadingProperties
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  HeaderSection(
+          : CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: HeaderSection(
                     title: 'Vos coups de cœur',
                     subtitle:
                         '${_favoriteProperties.length} propriétés sauvegardées',
                   ),
-                  SizedBox(height: AppSpacing.lg),
-                  if (_favoriteProperties.isEmpty)
-                    Center(
+                ),
+                if (_favoriteProperties.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
                       child: Padding(
                         padding: AppSpacing.paddingXl,
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.favorite_border,
@@ -149,36 +152,25 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                           ],
                         ),
                       ),
-                    )
-                  else
-                    Padding(
-                      padding: AppSpacing.paddingMd,
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount:
-                              MediaQuery.of(context).size.width > 600 ? 2 : 1,
-                          crossAxisSpacing: AppSpacing.lg,
-                          mainAxisSpacing: AppSpacing.lg,
-                          childAspectRatio:
-                              MediaQuery.of(context).size.width > 600
-                                  ? 0.8
-                                  : 0.9,
-                        ),
-                        itemCount: _favoriteProperties.length,
-                        itemBuilder: (context, index) {
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: AppSpacing.paddingMd,
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount:
+                            MediaQuery.of(context).size.width > 600 ? 2 : 1,
+                        crossAxisSpacing: AppSpacing.lg,
+                        mainAxisSpacing: AppSpacing.lg,
+                        childAspectRatio: 0.75,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
                           final property = _favoriteProperties[index];
-                          // Hack pour forcer l'affichage 'Favori' même si le modèle dit false
-                          // On ne peut pas facilement modifier property ici si c'est final.
-                          // Espérons que PropertyCard checke le service, ou alors on modifiera PropertyCard.
-                          // Spoiler: PropertyCard checke widget.property.isFavorite.
-                          // On va modifier PropertyCard juste après pour être robuste.
 
                           return PropertyCard(
                             property: property,
-                            // isFavorite est géré en interne par PropertyCard ou on peut forcer true
-                            // PropertyCard checke le service normalement.
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
@@ -188,14 +180,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                               );
                             },
                             onFavoriteToggle: (isFavorite) async {
-                              // Si on décoche, on devrait peut-être le retirer de la liste locale ?
-                              // Le service gère l'appel API.
-                              // Si on veut une maj immédiate :
                               if (!isFavorite) {
-                                // Attendre la fin de l'anim ou refresh
-                                // On laisse le service faire, et au prochain rebuild ou chargement ça partira
-                                // Mais FavoritesService notifyListeners, donc PropertyCard changera d'état.
-                                // Si on veut le retirer de la liste VISUELLE :
                                 await context
                                     .read<FavoritesService>()
                                     .removeFavorite(property.id);
@@ -204,8 +189,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 });
                               }
                             },
-                            canManage:
-                                false, // On ne gère pas ses favoris comme ses propres annonces (edit/delete)
+                            canManage: false,
                             onViewDetails: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
@@ -214,17 +198,18 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 ),
                               );
                             },
-                            // Edit/Delete désactivés pour les favoris (sauf si c'est NOS propriétés ?)
-                            // Généralement on ne modifie pas depuis l'écran favoris
                             onEdit: () {},
                             onDelete: () {},
                           );
                         },
+                        childCount: _favoriteProperties.length,
                       ),
                     ),
-                  SizedBox(height: AppSpacing.xxl),
-                ],
-              ),
+                  ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 48),
+                ),
+              ],
             ),
     );
   }

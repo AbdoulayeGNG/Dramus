@@ -12,19 +12,36 @@ class SocketService extends ChangeNotifier {
   bool get isConnected => _isConnected;
 
   // Callbacks for message events
-  void Function(Map<String, dynamic>)? _onNewMessage;
-  void Function(Map<String, dynamic>)? _onStatusUpdate;
+  final List<void Function(Map<String, dynamic>)> _newMessageListeners = [];
+  final List<void Function(Map<String, dynamic>)> _statusUpdateListeners = [];
 
-  void setCallbacks({
-    void Function(Map<String, dynamic>)? onNewMessage,
-    void Function(Map<String, dynamic>)? onStatusUpdate,
-  }) {
-    _onNewMessage = onNewMessage;
-    _onStatusUpdate = onStatusUpdate;
+  void addMessageListener(void Function(Map<String, dynamic>) listener) {
+    if (!_newMessageListeners.contains(listener)) {
+      _newMessageListeners.add(listener);
+    }
+  }
+
+  void removeMessageListener(void Function(Map<String, dynamic>) listener) {
+    _newMessageListeners.remove(listener);
+  }
+
+  void addStatusListener(void Function(Map<String, dynamic>) listener) {
+    if (!_statusUpdateListeners.contains(listener)) {
+      _statusUpdateListeners.add(listener);
+    }
+  }
+
+  void removeStatusListener(void Function(Map<String, dynamic>) listener) {
+    _statusUpdateListeners.remove(listener);
   }
 
   void initialize(String userId) {
     if (_userId == userId && _socket != null) return;
+
+    // If user changed, clean previous socket
+    if (_userId != null && _userId != userId) {
+      disconnect();
+    }
 
     _userId = userId;
     _connect();
@@ -34,11 +51,9 @@ class SocketService extends ChangeNotifier {
     if (_userId == null) return;
 
     final token = await _storage.getAccessToken();
-    final baseUrl = ApiClient.instance.dio.options.baseUrl
+    final baseUrl = ApiClient.I.dio.options.baseUrl
         .replaceAll('https://', 'wss://')
         .replaceAll('http://', 'ws://');
-
-    debugPrint('SocketService: Connecting to $baseUrl with userId: $_userId');
 
     _socket = IO.io(
         baseUrl,
@@ -61,21 +76,16 @@ class SocketService extends ChangeNotifier {
       notifyListeners();
     });
 
-    _socket!.onConnectError(
-        (data) => debugPrint('SocketService: Connect Error: $data'));
-    _socket!.onError((data) => debugPrint('SocketService: Error: $data'));
-
     _socket!.on('new_message', (data) {
-      debugPrint('SocketService: New message received via socket: $data');
-      if (_onNewMessage != null) {
-        _onNewMessage!(data);
+      debugPrint('SocketService: New message received');
+      for (final listener in _newMessageListeners) {
+        listener(data);
       }
     });
 
     _socket!.on('message_status_update', (data) {
-      debugPrint('SocketService: Message status update: $data');
-      if (_onStatusUpdate != null) {
-        _onStatusUpdate!(data);
+      for (final listener in _statusUpdateListeners) {
+        listener(data);
       }
     });
   }
@@ -114,6 +124,11 @@ class SocketService extends ChangeNotifier {
       _userId = null;
       notifyListeners();
     }
+  }
+
+  /// Réinitialise le service (déconnexion socket + nettoyage) lors du logout.
+  void reset() {
+    disconnect();
   }
 
   @override

@@ -35,8 +35,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-                Text('Un code de réinitialisation a été envoyé à votre email.'),
+            content: Text(
+              'Un code de réinitialisation a été envoyé à votre email.',
+              softWrap: true,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
             backgroundColor: DramusColors.saleGreen,
           ),
         );
@@ -49,7 +53,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Erreur lors de l\'envoi. Vérifiez votre email.'),
+            content: Text(
+              'Erreur lors de l\'envoi. Vérifiez votre email.',
+              softWrap: true,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
             backgroundColor: DramusColors.notificationRed,
           ),
         );
@@ -58,7 +67,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(
+              'Erreur: $e',
+              softWrap: true,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
             backgroundColor: DramusColors.notificationRed,
           ),
         );
@@ -72,78 +86,81 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Mot de passe oublié'),
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
       ),
-      body: Padding(
-        padding: EdgeInsets.all(AppSpacing.lg),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Réinitialisation du mot de passe',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              SizedBox(height: AppSpacing.md),
-              Text(
-                'Entrez votre adresse email pour recevoir un code de réinitialisation.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: DramusColors.secondaryText,
-                    ),
-              ),
-              SizedBox(height: AppSpacing.xl),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer votre email';
-                  }
-                  if (!value.contains('@')) {
-                    return 'Email invalide';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: AppSpacing.xl),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: DramusColors.primaryTeal,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: DramusColors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Envoyer le code',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(AppSpacing.lg),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Réinitialisation du mot de passe',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-              ),
-            ],
+                ),
+                SizedBox(height: AppSpacing.md),
+                Text(
+                  'Entrez votre adresse email pour recevoir un code de réinitialisation.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: DramusColors.secondaryText,
+                      ),
+                ),
+                SizedBox(height: AppSpacing.xl),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez entrer votre email';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Email invalide';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: AppSpacing.xl),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DramusColors.primaryTeal,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: DramusColors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Envoyer le code',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

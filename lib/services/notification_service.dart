@@ -34,20 +34,21 @@ class NotificationService extends ChangeNotifier {
   List<NotificationModel> _notifications = [];
   bool _isLoading = false;
   int _unreadCount = 0;
-  int _sessionId = 0; // Pour éviter les race conditions lors de la déconnexion
+  int _sessionId = 0;
+  bool _isInitialized = false;
 
   List<NotificationModel> get notifications => _notifications;
   bool get isLoading => _isLoading;
   int get unreadCount => _unreadCount;
 
-  // Stream controller for handling notification taps
   final _messageStreamController = StreamController<String>.broadcast();
   Stream<String> get messageStream => _messageStreamController.stream;
 
   Future<void> initialize() async {
+    if (_isInitialized) return;
+
     if (_messaging == null || _localNotifications == null) {
-      debugPrint(
-          'NotificationService: Initialisation avortée car les plugins ne sont pas disponibles');
+      debugPrint('NotificationService: Plugins non disponibles');
       return;
     }
 
@@ -57,17 +58,15 @@ class NotificationService extends ChangeNotifier {
         alert: true,
         badge: true,
         sound: true,
-        provisional: false,
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        debugPrint('User granted permission');
-
-        // 2. Setup local notifications for foreground display
+        // 2. Setup local notifications
         const AndroidInitializationSettings initializationSettingsAndroid =
             AndroidInitializationSettings('@mipmap/ic_launcher');
         const DarwinInitializationSettings initializationSettingsIOS =
             DarwinInitializationSettings();
+
         const InitializationSettings initializationSettings =
             InitializationSettings(
           android: initializationSettingsAndroid,
@@ -79,7 +78,6 @@ class NotificationService extends ChangeNotifier {
           onDidReceiveNotificationResponse: (details) {
             if (details.payload != null) {
               final payload = details.payload!;
-              // Si le payload ressemble à un ID (String long), on marque comme livré
               if (payload.length > 10) {
                 _markDeliveredViaApi(payload);
               }
@@ -88,52 +86,47 @@ class NotificationService extends ChangeNotifier {
           },
         );
 
-        // 3. Get FCM Token
-        try {
-          String? token = await _messaging.getToken();
-          if (token != null) {
-            debugPrint('FCM Token: $token');
-            await _messaging.subscribeToTopic('all_users');
-          }
-        } catch (e) {
-          debugPrint('Error getting FCM token: $e');
+        // 3. Handle token
+        String? token = await _messaging.getToken();
+        if (token != null) {
+          debugPrint('NotificationService: FCM Token obtained');
+          await registerToken(token);
+          await _messaging.subscribeToTopic('all_users');
         }
 
-        // 4. Handle token refresh
-        _messaging.onTokenRefresh.listen((newToken) {
-          registerToken(newToken);
-        });
+        _messaging.onTokenRefresh.listen(registerToken);
 
-        // 5. Foreground messages
+        // 4. Foreground messages
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-          debugPrint('Got a message whilst in the foreground!');
-          debugPrint('Message data: ${message.data}');
-
-          if (message.data['type'] == 'message' &&
-              message.data['messageId'] != null) {
-            _markDeliveredViaApi(message.data['messageId']);
-          }
-
           if (message.notification != null) {
-            debugPrint(
-                'Message also contained a notification: ${message.notification}');
             _showLocalNotification(message);
           }
-
-          // Refresh notifications list if payload suggests it
           fetchNotifications();
         });
 
-        // 6. Background message tap
+        // 5. App opened from background
         FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-          debugPrint('A new onMessageOpenedApp event was published!');
-          // Navigator logic can be handled by listening to messageStream in UI
+          final payload = message.data['messageId'] ??
+              message.data['type'] ??
+              'notification';
+          _messageStreamController.add(payload);
         });
-      } else {
-        debugPrint('User declined or has not accepted permission');
+
+        // 6. App opened from terminated state
+        RemoteMessage? initialMessage = await _messaging.getInitialMessage();
+        if (initialMessage != null) {
+          final payload = initialMessage.data['messageId'] ??
+              initialMessage.data['type'] ??
+              'notification';
+          Future.delayed(const Duration(seconds: 1), () {
+            _messageStreamController.add(payload);
+          });
+        }
+
+        _isInitialized = true;
       }
     } catch (e) {
-      debugPrint('Error during NotificationService initialization: $e');
+      debugPrint('NotificationService: Error during initialization: $e');
     }
   }
 

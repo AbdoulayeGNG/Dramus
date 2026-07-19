@@ -11,16 +11,30 @@ class MessageService extends ChangeNotifier {
   List<Conversation> _conversations = [];
   Map<String, List<Message>> _messagesByConversation = {};
   bool _isLoading = false;
+  bool _hasInitialLoad = false;
   String? currentUserId;
   int _sessionId = 0; // Pour éviter les race conditions lors de la déconnexion
   String? _cachedOwnerId; // Pour identifier à qui appartient ce cache
+  String?
+      _activeConversationId; // ID de la conversation actuellement ouverte par l'utilisateur
+
+  // Conversation en attente (ex: utilisateur non connecté clique sur Message)
+  String? pendingConversationId;
+  String? pendingPropertyId;
+  String? pendingOwnerName;
+  String? pendingPrefilledMessage;
 
   List<Conversation> get conversations => _conversations;
   bool get isLoading => _isLoading;
+  bool get hasInitialLoad => _hasInitialLoad;
 
   /// Définir le service socket
   void setSocketService(SocketService socketService) {
     if (_socketService == socketService) return;
+
+    // Remove listener from old service if it exists
+    _socketService?.removeListener(_onSocketServiceChanged);
+
     _socketService = socketService;
 
     // Écouter les événements du socket
@@ -41,10 +55,16 @@ class MessageService extends ChangeNotifier {
 
   /// Configurer les écouteurs de socket pour les messages
   void setupSocketListeners() {
-    _socketService?.setCallbacks(
-      onNewMessage: handleNewSocketMessage,
-      onStatusUpdate: handleStatusUpdate,
-    );
+    _socketService?.addMessageListener(handleNewSocketMessage);
+    _socketService?.addStatusListener(handleStatusUpdate);
+  }
+
+  @override
+  void dispose() {
+    _socketService?.removeListener(_onSocketServiceChanged);
+    _socketService?.removeMessageListener(handleNewSocketMessage);
+    _socketService?.removeStatusListener(handleStatusUpdate);
+    super.dispose();
   }
 
   /// Gérer un nouveau message reçu par socket
@@ -67,12 +87,38 @@ class MessageService extends ChangeNotifier {
 
         // Mettre à jour la conversation
         final convIndex = _conversations.indexWhere((c) => c.id == otherUserId);
+
+        final bool isNewUnread = newMessage.receiverId == currentUserId &&
+            _activeConversationId != otherUserId;
+
         if (convIndex != -1) {
           _conversations[convIndex] = _conversations[convIndex].copyWith(
             lastMessage: newMessage,
             updatedAt: newMessage.createdAt,
+            unreadCount: isNewUnread
+                ? _conversations[convIndex].unreadCount + 1
+                : _conversations[convIndex].unreadCount,
           );
+        } else {
+          // Nouvelle conversation détectée via socket
+          final newConv = Conversation(
+            id: otherUserId,
+            userId1: currentUserId!,
+            user1Name: 'Vous',
+            userId2: otherUserId,
+            user2Name: newMessage.senderId == currentUserId
+                ? (newMessage.receiverName ?? 'Utilisateur')
+                : (newMessage.senderName ?? 'Utilisateur'),
+            user2Avatar: null, // Sera chargé via API au besoin
+            lastMessage: newMessage,
+            updatedAt: newMessage.createdAt,
+            unreadCount: isNewUnread ? 1 : 0,
+          );
+          _conversations.insert(0, newConv);
         }
+
+        // Trier pour remonter la conversation active
+        _conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
         // Si l'app est ouverte sur cette conversation, on marque comme livré via API
         if (newMessage.receiverId == currentUserId) {
@@ -132,6 +178,15 @@ class MessageService extends ChangeNotifier {
     // Initialiser le socket si le service est disponible
     if (_socketService != null) {
       _socketService?.initialize(userId);
+    }
+  }
+
+  /// Définir la conversation active (vue par l'utilisateur)
+  void setActiveConversation(String? conversationId) {
+    _activeConversationId = conversationId;
+    if (conversationId != null) {
+      // Optionnellement, marquer comme lu
+      markConversationAsRead(conversationId);
     }
   }
 
@@ -233,6 +288,7 @@ class MessageService extends ChangeNotifier {
               user2Avatar: otherUserAvatar,
               lastMessage: lastMessage,
               updatedAt: lastMessage.createdAt,
+              unreadCount: (convJson['unreadCount'] as num?)?.toInt() ?? 0,
             );
 
             newConversations.add(conversation);
@@ -246,6 +302,7 @@ class MessageService extends ChangeNotifier {
 
         // Mettre à jour la liste principale
         _conversations = newConversations;
+        _hasInitialLoad = true;
 
         debugPrint(
             'MessageService: Loaded ${_conversations.length} distinct conversations');
@@ -316,9 +373,11 @@ class MessageService extends ChangeNotifier {
         if (messages.isNotEmpty) {
           final lastMessage = messages.last;
 
-          String otherUserName = existingConvIndex != -1
-              ? _conversations[existingConvIndex].user2Name
-              : 'Utilisateur';
+          final existingConv = existingConvIndex != -1
+              ? _conversations[existingConvIndex]
+              : null;
+          String otherUserName = existingConv?.user2Name ?? 'Utilisateur';
+          String? otherUserAvatar = existingConv?.user2Avatar;
 
           // Tenter de trouver un meilleur nom dans les messages fraîchement chargés
           for (var i = messages.length - 1; i >= 0; i--) {
@@ -343,6 +402,7 @@ class MessageService extends ChangeNotifier {
             user1Name: 'Vous',
             userId2: otherUserId,
             user2Name: otherUserName,
+            user2Avatar: otherUserAvatar,
             lastMessage: lastMessage,
             updatedAt: lastMessage.createdAt,
           );
@@ -522,7 +582,7 @@ class MessageService extends ChangeNotifier {
           'MessageService: Marking conversation as read: $conversationId');
 
       final response = await _apiClient.dio
-          .patch('/api/message/conversation/$conversationId/read');
+          .patch('/api/messages/conversation/$conversationId/read');
 
       debugPrint('MessageService: Response status: ${response.statusCode}');
 
@@ -536,6 +596,15 @@ class MessageService extends ChangeNotifier {
             }
           }
         }
+
+        // Mettre à jour le compteur de la conversation
+        final convIndex =
+            _conversations.indexWhere((c) => c.id == conversationId);
+        if (convIndex != -1) {
+          _conversations[convIndex] =
+              _conversations[convIndex].copyWith(unreadCount: 0);
+        }
+
         notifyListeners();
       }
     } on DioException catch (e) {
@@ -640,10 +709,8 @@ class MessageService extends ChangeNotifier {
   /// Obtenir le nombre de messages non lus
   int getUnreadCount() {
     int count = 0;
-    for (var messages in _messagesByConversation.values) {
-      count += messages
-          .where((msg) => !msg.read && msg.receiverId == currentUserId)
-          .length;
+    for (var conv in _conversations) {
+      count += conv.unreadCount;
     }
     return count;
   }
@@ -730,8 +797,31 @@ class MessageService extends ChangeNotifier {
     _cachedOwnerId = null;
     _conversations = [];
     _messagesByConversation = {};
+    _hasInitialLoad = false;
     currentUserId = null;
     _isLoading = false;
+    _clearPendingConversation();
     notifyListeners();
   }
+
+  void setPendingConversation({
+    required String conversationId,
+    String? propertyId,
+    String? ownerName,
+    String? prefilledMessage,
+  }) {
+    pendingConversationId = conversationId;
+    pendingPropertyId = propertyId;
+    pendingOwnerName = ownerName;
+    pendingPrefilledMessage = prefilledMessage;
+  }
+
+  void clearPendingConversation() {
+    pendingConversationId = null;
+    pendingPropertyId = null;
+    pendingOwnerName = null;
+    pendingPrefilledMessage = null;
+  }
+
+  void _clearPendingConversation() => clearPendingConversation();
 }

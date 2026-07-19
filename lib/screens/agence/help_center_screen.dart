@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dramus/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HelpCenterScreen extends StatelessWidget {
   const HelpCenterScreen({super.key});
@@ -50,7 +51,7 @@ class HelpCenterScreen extends StatelessWidget {
               context,
               question: 'Comment contacter le support ?',
               answer:
-                  'Vous pouvez nous envoyer un email à support@dramus.com ou utiliser le formulaire ci-dessous.',
+                  'Vous pouvez nous envoyer un email à dramus.immo@gmail.com ou nous appeler au +224 613 01 39 82.',
             ),
             SizedBox(height: AppSpacing.xl),
             _buildContactSection(context),
@@ -146,25 +147,57 @@ class HelpCenterScreen extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           SizedBox(height: AppSpacing.lg),
-          ElevatedButton(
-            onPressed: () {
-              // Action pour contacter le support
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DramusColors.primaryTeal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xl,
-                vertical: AppSpacing.md,
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _launchUrl(context, 'tel:+224613013982'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DramusColors.primaryTeal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  child: const Text('Appeler'),
+                ),
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.md),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () =>
+                      _launchUrl(context, 'mailto:dramus.immo@gmail.com'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DramusColors.primaryTeal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  child: const Text('Email'),
+                ),
               ),
-            ),
-            child: const Text('Contacter le support'),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _launchUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible d\'ouvrir $url')),
+        );
+      }
+    }
   }
 }

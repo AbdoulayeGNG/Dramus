@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dramus/models/property.dart';
 import 'package:dramus/services/favorites_service.dart';
+import 'package:dramus/core/state/auth_controller.dart';
+import 'package:dramus/screens/auth/login_screen.dart';
 import 'package:dramus/theme.dart';
 import 'badge_widget.dart';
 
@@ -12,8 +15,8 @@ class PropertyCard extends StatefulWidget {
   final VoidCallback? onViewDetails;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-  final bool canManage; // Indique si l'utilisateur peut gérer cette annonce
-  final VoidCallback? onViewIncrement; // Callback pour incrémenter les vues
+  final bool canManage;
+  final VoidCallback? onViewIncrement;
 
   const PropertyCard({
     super.key,
@@ -47,6 +50,12 @@ class _PropertyCardState extends State<PropertyCard> {
   Future<void> _toggleFavorite() async {
     if (_isLoadingFavorite) return;
 
+    final authController = Provider.of<AuthController>(context, listen: false);
+    if (authController.user == null) {
+      _showLoginRequiredDialog(context);
+      return;
+    }
+
     setState(() {
       _isLoadingFavorite = true;
     });
@@ -58,11 +67,9 @@ class _PropertyCardState extends State<PropertyCard> {
       final success = await favoritesService.toggleFavorite(widget.property.id);
 
       if (success && mounted) {
-        // Le service va notifier les auditeurs, donc le Consumer va reconstruire
         widget.onFavoriteToggle
             ?.call(!favoritesService.isFavorite(widget.property.id));
 
-        // Afficher un message de confirmation
         final isNowFavorite = favoritesService.isFavorite(widget.property.id);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -104,7 +111,6 @@ class _PropertyCardState extends State<PropertyCard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Handle pour fermer
               Container(
                 width: 40,
                 height: 4,
@@ -114,7 +120,6 @@ class _PropertyCardState extends State<PropertyCard> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // Options du menu
               ListTile(
                 leading:
                     Icon(Icons.visibility, color: DramusColors.primaryTeal),
@@ -182,6 +187,46 @@ class _PropertyCardState extends State<PropertyCard> {
     );
   }
 
+  void _showLoginRequiredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: const Text('Connexion requise'),
+        content: const Text(
+            'Vous devez être connecté pour ajouter une annonce à vos favoris.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Annuler',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DramusColors.primaryTeal,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
+            child: const Text('Se connecter'),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatPrice(num price) {
     if (price >= 1000000) {
       return '${(price / 1000000).toStringAsFixed(1)}M GNF';
@@ -191,11 +236,86 @@ class _PropertyCardState extends State<PropertyCard> {
     return '${price.toStringAsFixed(0)} GNF';
   }
 
+  List<Widget> _buildCaracteristiquesWidgets(
+      BuildContext context, Property property) {
+    final List<Widget> widgets = [];
+    final carac = property.caracteristiques;
+    if (carac.isEmpty) return widgets;
+
+    Widget buildChip(IconData icon, String text) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: DramusColors.deepTeal),
+          SizedBox(width: AppSpacing.xs),
+          Text(text, style: Theme.of(context).textTheme.labelMedium),
+        ],
+      );
+    }
+
+    String resolveBool(dynamic value) {
+      if (value == true || value == 'true') return 'Oui';
+      return 'Non';
+    }
+
+    // 1. Surface (Commun à tous si présent)
+    if (carac['surface'] != null) {
+      widgets
+          .add(buildChip(Icons.square_foot_outlined, '${carac['surface']}m²'));
+    }
+
+    final type = property.type.toLowerCase();
+
+    // 2. Éléments spécifiques selon le type
+    if (type == 'appartement') {
+      if (carac['chambres'] != null)
+        widgets
+            .add(buildChip(Icons.king_bed_outlined, '${carac['chambres']} Ch'));
+      if (carac['sallesDeBain'] != null)
+        widgets.add(
+            buildChip(Icons.bathtub_outlined, '${carac['sallesDeBain']} Sdb'));
+      if (carac['etage'] != null)
+        widgets.add(buildChip(Icons.stairs_outlined, 'Ét. ${carac['etage']}'));
+      if (carac['ascenseur'] != null)
+        widgets.add(buildChip(Icons.elevator_outlined,
+            'Asc. ${resolveBool(carac['ascenseur'])}'));
+      if (carac['balcon'] != null)
+        widgets.add(buildChip(
+            Icons.balcony_outlined, 'Balc. ${resolveBool(carac['balcon'])}'));
+    } else if (type == 'maison') {
+      if (carac['chambres'] != null)
+        widgets
+            .add(buildChip(Icons.king_bed_outlined, '${carac['chambres']} Ch'));
+      if (carac['sallesDeBain'] != null)
+        widgets.add(
+            buildChip(Icons.bathtub_outlined, '${carac['sallesDeBain']} Sdb'));
+      if (carac['garage'] != null)
+        widgets.add(buildChip(
+            Icons.garage_outlined, 'Gar. ${resolveBool(carac['garage'])}'));
+      if (carac['jardin'] != null)
+        widgets.add(buildChip(
+            Icons.grass_outlined, 'Jar. ${resolveBool(carac['jardin'])}'));
+      if (carac['piscine'] != null)
+        widgets.add(buildChip(
+            Icons.pool_outlined, 'Pisc. ${resolveBool(carac['piscine'])}'));
+    } else if (type == 'terrain') {
+      if (carac['viabilise'] != null)
+        widgets.add(buildChip(Icons.electric_meter_outlined,
+            'Viab. ${resolveBool(carac['viabilise'])}'));
+      if (carac['cloture'] != null)
+        widgets.add(buildChip(
+            Icons.fence_outlined, 'Clôt. ${resolveBool(carac['cloture'])}'));
+    }
+
+    return widgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onTap,
       child: Card(
+        clipBehavior: Clip.antiAlias,
         color: Theme.of(context).cardTheme.color,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -206,24 +326,20 @@ class _PropertyCardState extends State<PropertyCard> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Stack(
               children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(AppRadius.lg),
-                    topRight: Radius.circular(AppRadius.lg),
-                  ),
+                AspectRatio(
+                  aspectRatio: 16 / 9,
                   child: widget.property.images.isNotEmpty
-                      ? Image.network(
-                          widget.property.images.first,
-                          height: 200,
+                      ? CachedNetworkImage(
+                          imageUrl: widget.property.images.first,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
+                          progressIndicatorBuilder:
+                              (context, url, downloadProgress) {
                             return Container(
-                              height: 200,
                               width: double.infinity,
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
@@ -237,17 +353,13 @@ class _PropertyCardState extends State<PropertyCard> {
                               ),
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes !=
-                                          null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
+                                  value: downloadProgress.progress,
                                   color: DramusColors.primaryTeal,
                                 ),
                               ),
                             );
                           },
-                          errorBuilder: (context, error, stackTrace) {
+                          errorWidget: (context, url, error) {
                             return _buildImagePlaceholder(
                                 context, 'Image non disponible');
                           },
@@ -260,7 +372,6 @@ class _PropertyCardState extends State<PropertyCard> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Bouton favori seulement (moreVert déplacé en bas)
                       Consumer<FavoritesService>(
                         builder: (context, favoritesService, _) {
                           final isFavorite =
@@ -301,7 +412,7 @@ class _PropertyCardState extends State<PropertyCard> {
                     children: [
                       BadgeWidget(
                         label: widget.property.type,
-                        type: BadgeType.sale, // Use sale type for now
+                        type: BadgeType.sale,
                       ),
                     ],
                   ),
@@ -313,79 +424,128 @@ class _PropertyCardState extends State<PropertyCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Prix et bouton moreVert sur la même ligne
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatPrice(widget.property.price),
-                        style:
-                            Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  color: DramusColors.primaryTeal,
-                                  fontWeight: FontWeight.bold,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Action widget (more_vert or views counter)
+                      final Widget actionWidget = widget.canManage
+                          ? GestureDetector(
+                              onTap: () => _showManagementMenu(context),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceVariant,
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.xl),
                                 ),
-                      ),
-                      // Bouton de gestion (moreVert) - seulement si l'utilisateur peut gérer
-                      if (widget.canManage)
-                        GestureDetector(
-                          onTap: () => _showManagementMenu(context),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color:
-                                  Theme.of(context).colorScheme.surfaceVariant,
-                              borderRadius: BorderRadius.circular(AppRadius.xl),
-                            ),
-                            padding: AppSpacing.paddingSm,
-                            child: Icon(
-                              Icons.more_vert,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                              size: 20,
-                            ),
-                          ),
-                        )
-                      // Bouton de vues pour les clients
-                      else
-                        GestureDetector(
-                          onTap: () {
-                            widget.onViewIncrement?.call();
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: DramusColors.primaryTeal
-                                  .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(AppRadius.xl),
-                              border: Border.all(
-                                color: DramusColors.primaryTeal
-                                    .withValues(alpha: 0.3),
+                                padding: AppSpacing.paddingSm,
+                                child: Icon(
+                                  Icons.more_vert,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                  size: 20,
+                                ),
                               ),
-                            ),
-                            padding: AppSpacing.paddingSm,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.visibility,
-                                  color: DramusColors.primaryTeal,
-                                  size: 16,
+                            )
+                          : GestureDetector(
+                              onTap: () {
+                                widget.onViewIncrement?.call();
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: DramusColors.primaryTeal
+                                      .withValues(alpha: 0.1),
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.xl),
+                                  border: Border.all(
+                                    color: DramusColors.primaryTeal
+                                        .withValues(alpha: 0.3),
+                                  ),
                                 ),
-                                SizedBox(width: AppSpacing.xs),
-                                Text(
-                                  '${widget.property.views}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(
-                                        color: DramusColors.primaryTeal,
-                                        fontWeight: FontWeight.w600,
+                                padding: AppSpacing.paddingSm,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.visibility,
+                                      color: DramusColors.primaryTeal,
+                                      size: 16,
+                                    ),
+                                    SizedBox(width: AppSpacing.xs),
+                                    ConstrainedBox(
+                                      constraints:
+                                          const BoxConstraints(maxWidth: 80),
+                                      child: Text(
+                                        '${widget.property.views}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              color: DramusColors.primaryTeal,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                       ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
+                            );
+
+                      // Si l'espace est critique (très petites grilles < 130px),
+                      // on wrap pour éviter tout overflow horizontal.
+                      if (constraints.maxWidth < 130) {
+                        return Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              _formatPrice(widget.property.price),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    color: DramusColors.primaryTeal,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            actionWidget,
+                          ],
+                        );
+                      }
+
+                      // Affichage normal et robuste avec flex 3/2
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              _formatPrice(widget.property.price),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    color: DramusColors.primaryTeal,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                           ),
-                        ),
-                    ],
+                          SizedBox(width: AppSpacing.sm),
+                          Flexible(
+                            flex: 2,
+                            child: actionWidget,
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   SizedBox(height: AppSpacing.sm),
                   Text(
@@ -418,21 +578,15 @@ class _PropertyCardState extends State<PropertyCard> {
                       ),
                     ],
                   ),
-                  SizedBox(height: AppSpacing.md),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.square_foot_outlined,
-                        size: 16,
-                        color: DramusColors.deepTeal,
-                      ),
-                      SizedBox(width: AppSpacing.xs),
-                      Text(
-                        '${widget.property.surface.toStringAsFixed(0)}m²',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ],
-                  ),
+                  if (widget.property.caracteristiques.isNotEmpty)
+                    SizedBox(height: AppSpacing.md),
+                  if (widget.property.caracteristiques.isNotEmpty)
+                    Wrap(
+                      spacing: AppSpacing.md,
+                      runSpacing: AppSpacing.sm,
+                      children: _buildCaracteristiquesWidgets(
+                          context, widget.property),
+                    ),
                 ],
               ),
             ),
@@ -444,7 +598,6 @@ class _PropertyCardState extends State<PropertyCard> {
 
   Widget _buildImagePlaceholder(BuildContext context, String message) {
     return Container(
-      height: 200,
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -465,13 +618,18 @@ class _PropertyCardState extends State<PropertyCard> {
             color: DramusColors.white.withValues(alpha: 0.5),
           ),
           SizedBox(height: AppSpacing.sm),
-          Text(
-            message,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: DramusColors.white.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w500,
-                ),
-          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Text(
+              message,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: DramusColors.white.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          )
         ],
       ),
     );

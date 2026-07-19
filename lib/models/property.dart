@@ -75,7 +75,7 @@ class Property {
   final String type; // Maison | Appartement | Terrain
   final num price;
   final PropertyLocation location;
-  final num surface;
+  final Map<String, dynamic> caracteristiques;
   final String description;
   final List<String> images;
   final String status; // draft | published | archived
@@ -89,7 +89,7 @@ class Property {
     required this.type,
     required this.price,
     required this.location,
-    required this.surface,
+    required this.caracteristiques,
     required this.description,
     required this.images,
     required this.status,
@@ -135,14 +135,16 @@ class Property {
       owner: owner,
       title: json['title'] ?? '',
       type: json['type'] ?? 'Maison',
-      price: json['price'] ?? 0,
+      price: double.tryParse(json['price']?.toString() ?? '0') ?? 0,
       location: PropertyLocation.fromJson(json['location'] ?? {}),
-      surface: json['surface'] ?? 0,
+      caracteristiques: json['caracteristiques'] != null
+          ? Map<String, dynamic>.from(json['caracteristiques'])
+          : (json['surface'] != null ? {'surface': json['surface']} : {}),
       description: json['description'] ?? '',
       images:
           ((json['images'] ?? []) as List).map((e) => e.toString()).toList(),
       status: json['status'] ?? 'draft',
-      views: (json['views'] as num?)?.toInt() ?? 0,
+      views: int.tryParse(json['views']?.toString() ?? '0') ?? 0,
       isFavorite: json['isFavorite'] ?? false,
     );
   }
@@ -154,7 +156,7 @@ class Property {
         'type': type,
         'price': price,
         'location': location.toJson(),
-        'surface': surface,
+        'caracteristiques': caracteristiques,
         'description': description,
         'images': images,
         'status': status,
@@ -168,7 +170,7 @@ class Property {
     String? type,
     num? price,
     PropertyLocation? location,
-    num? surface,
+    Map<String, dynamic>? caracteristiques,
     String? description,
     List<String>? images,
     String? status,
@@ -182,7 +184,7 @@ class Property {
       type: type ?? this.type,
       price: price ?? this.price,
       location: location ?? this.location,
-      surface: surface ?? this.surface,
+      caracteristiques: caracteristiques ?? this.caracteristiques,
       description: description ?? this.description,
       images: images ?? this.images,
       status: status ?? this.status,
@@ -201,7 +203,7 @@ class Property {
       price: 0,
       location:
           PropertyLocation(city: '', district: '', latitude: 0, longitude: 0),
-      surface: 0,
+      caracteristiques: {},
       description: '',
       images: [],
       status: 'draft',

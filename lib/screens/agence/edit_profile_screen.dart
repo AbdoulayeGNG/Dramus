@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dramus/core/state/auth_controller.dart';
-import 'package:dramus/models/user_model.dart';
+import 'package:dramus/services/auth_service.dart';
 import 'package:dramus/widgets/custom_button.dart';
 import 'package:dramus/theme.dart';
 
@@ -18,6 +21,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _lastNameController;
   late TextEditingController _phoneController;
   bool _isLoading = false;
+  File? _pickedAvatar;
 
   @override
   void initState() {
@@ -36,42 +40,61 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _pickAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 800,
+    );
+    if (picked != null) {
+      setState(() => _pickedAvatar = File(picked.path));
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Simuler un appel réseau
-    await Future.delayed(const Duration(seconds: 1));
-
-    if (!mounted) return;
-
-    final authController = context.read<AuthController>();
-    final currentUser = authController.user!;
-
-    // Créer un nouvel objet User avec les modifications
-    // Note: User.copyWith doit être utilisé
-    final updatedUser = currentUser.copyWith(
-      firstName: _firstNameController.text.trim(),
-      lastName: _lastNameController.text.trim(),
-      phone: _phoneController.text.trim(),
-    );
-
-    // Sauvegarder dans le state local
-    // Idéalement, on appellerait un service API ici (UserService.updateProfile)
-    // Mais pour l'instant, on met juste à jour le state local
-    authController.setUser(updatedUser);
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil mis à jour avec succès'),
-          backgroundColor: DramusColors.primaryTeal,
-        ),
+    try {
+      final updatedUser = await AuthService.instance.updateProfile(
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        avatarFile: _pickedAvatar,
       );
-      Navigator.pop(context);
+
+      if (!mounted) return;
+
+      if (updatedUser != null) {
+        context.read<AuthController>().setUser(updatedUser);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil mis à jour avec succès'),
+            backgroundColor: DramusColors.primaryTeal,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Impossible de mettre à jour le profil'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -93,7 +116,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Column(
             children: [
               _buildAvatarSection(context),
-              SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.xxl),
               _buildTextField(
                 controller: _firstNameController,
                 label: 'Prénom',
@@ -101,7 +124,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 validator: (value) =>
                     value!.isEmpty ? 'Ce champ est requis' : null,
               ),
-              SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.lg),
               _buildTextField(
                 controller: _lastNameController,
                 label: 'Nom',
@@ -109,7 +132,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 validator: (value) =>
                     value!.isEmpty ? 'Ce champ est requis' : null,
               ),
-              SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.lg),
               _buildTextField(
                 controller: _phoneController,
                 label: 'Téléphone',
@@ -118,7 +141,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 validator: (value) =>
                     value!.isEmpty ? 'Ce champ est requis' : null,
               ),
-              SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.xxl),
               CustomButton(
                 label: 'Enregistrer les modifications',
                 onPressed: _saveProfile,
@@ -140,9 +163,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           CircleAvatar(
             radius: 60,
             backgroundColor: DramusColors.primaryTeal,
-            backgroundImage:
-                user.avatar.isNotEmpty ? NetworkImage(user.avatar) : null,
-            child: user.avatar.isEmpty
+            backgroundImage: _pickedAvatar != null
+                ? FileImage(_pickedAvatar!) as ImageProvider
+                : (user.avatar.isNotEmpty ? CachedNetworkImageProvider(user.avatar) : null),
+            child: (_pickedAvatar == null && user.avatar.isEmpty)
                 ? Text(
                     user.initials,
                     style: const TextStyle(
@@ -157,11 +181,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             bottom: 0,
             right: 0,
             child: GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Changement de photo à venir')),
-                );
-              },
+              onTap: _pickAvatar,
               child: Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
